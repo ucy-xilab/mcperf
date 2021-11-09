@@ -1,0 +1,28 @@
+---
+- name: Run agents
+  hosts: all
+
+  tasks:
+  - name: Install dependencies
+    become: yes
+    apt:
+      update_cache: yes
+      pkg:
+      - libevent-dev 
+      - libzmq3-dev
+  - name: Install tools
+    become: yes
+    apt:
+      update_cache: yes
+      pkg:
+      - sysstat
+  - name: Copy memcached binary
+    copy:
+      src: ~/memcached/memcached
+      dest: ~/
+      mode: 0700
+  - name: Copy memcache-perf binary
+    copy:
+      src: ~/memcache-perf/mcperf
+      dest: ~/
+      mode: 0700
