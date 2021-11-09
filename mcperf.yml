@@ -17,6 +17,9 @@
       update_cache: yes
       pkg:
       - sysstat
+      - linux-tools-common
+      - linux-tools-generic
+      - linux-tools-5.4.0-88-generic
   - name: Copy memcached binary
     copy:
       src: ./memcached/memcached
