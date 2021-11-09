@@ -28,20 +28,18 @@ build_mcperf () {
 }
 
 build_and_deploy () {
+  build_memcached
   build_mcperf
-  ansible-playbook -v -i hosts deploy.yml
+  ansible-playbook -v -i hosts mcperf.yml --tags "configuration"
 }
 
-run_agents () {
-  ansible-playbook -v -i hosts run-mcperf.yml
+run_remote () {
+  ansible-playbook -v -i hosts mcperf.yml --tags "run"
 }
 
-run_master () {
-  echo 'run'
+kill_remote () {
+  ansible-playbook -v -i hosts mcperf.yml --tags "kill"
 }
 
-run_memcached_server () {
-  echo 'run'
-}
 
 "$@"

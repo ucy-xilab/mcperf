@@ -18,11 +18,11 @@
       - sysstat
   - name: Copy memcached binary
     copy:
-      src: ~/memcached/memcached
+      src: ./memcached/memcached
       dest: ~/
       mode: 0700
   - name: Copy memcache-perf binary
     copy:
-      src: ~/memcache-perf/mcperf
+      src: ./memcache-perf/mcperf
       dest: ~/
       mode: 0700
