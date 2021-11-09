@@ -31,7 +31,7 @@
 - name: Kill memcached server
   hosts: server
   tags: 
-  - kill
+  - kill_server
   tasks:
   - name: Kill memcached server       
     ignore_errors: yes
@@ -40,7 +40,7 @@
 - name: Run memcached server
   hosts: server
   tags: 
-  - run
+  - run_server
   tasks:
   - name: Run memcached server
     command: ./memcached -t 20 -c 32768
@@ -50,18 +50,16 @@
 - name: Kill agents
   hosts: agents
   tags:
-  - kill
+  - kill_agents
   tasks:
   - name: Kill agents    
     ignore_errors: yes
     shell: pkill mcperf 
-    tags: 
-    - kill
  
 - name: Run agents
   hosts: agents
   tags: 
-  - run
+  - run_agents
   tasks:
   - name: Run agent
     shell: ./mcperf -T 40 -A

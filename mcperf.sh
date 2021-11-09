@@ -34,12 +34,21 @@ build_and_deploy () {
 }
 
 run_remote () {
-  ansible-playbook -v -i hosts mcperf.yml --tags "run"
+  ansible-playbook -v -i hosts mcperf.yml --tags "run_server,run_agents"
 }
 
 kill_remote () {
-  ansible-playbook -v -i hosts mcperf.yml --tags "kill"
+  ansible-playbook -v -i hosts mcperf.yml --tags "kill_server,run_servers"
 }
+
+run_server () {
+  ansible-playbook -v -i hosts mcperf.yml --tags "run_server"
+}
+
+kill_server () {
+  ansible-playbook -v -i hosts mcperf.yml --tags "kill_server"
+}
+
 
 status_remote () {
   ansible-playbook -v -i hosts mcperf.yml --tags "status"
