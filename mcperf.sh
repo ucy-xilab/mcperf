@@ -41,5 +41,10 @@ kill_remote () {
   ansible-playbook -v -i hosts mcperf.yml --tags "kill"
 }
 
+status_remote () {
+  ansible-playbook -v -i hosts mcperf.yml --tags "status"
+}
+
+
 
 "$@"

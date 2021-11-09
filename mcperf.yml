@@ -3,7 +3,6 @@
   hosts: all
   tags: 
   - configuration
-
   tasks:
   - name: Install dependencies
     become: yes
@@ -12,64 +11,71 @@
       pkg:
       - libevent-dev 
       - libzmq3-dev
-      tags: 
-      - configuration
-
   - name: Install tools
     become: yes
     apt:
       update_cache: yes
       pkg:
       - sysstat
-      tags: 
-      - configuration
-
   - name: Copy memcached binary
     copy:
       src: ./memcached/memcached
       dest: ~/
       mode: 0700
-    tags: 
-    - configuration
-
   - name: Copy memcache-perf binary
     copy:
       src: ./memcache-perf/mcperf
       dest: ~/
       mode: 0700
-    tags: 
-    - configuration
 
 - name: Kill memcached server
-  tasks:
-
-  ignore_errors: yes
-  shell: pkill memcached 
+  hosts: server
   tags: 
   - kill
+  tasks:
+  - name: Kill memcached server       
+    ignore_errors: yes
+    shell: pkill memcached 
 
 - name: Run memcached server
-  command: ./memcached -t 20 -c 32768
-  async: 10000 
-  poll: 0
+  hosts: server
   tags: 
   - run
+  tasks:
+  - name: Run memcached server
+    command: ./memcached -t 20 -c 32768
+    async: 10000 
+    poll: 0
 
 - name: Kill agents
   hosts: agents
-  ignore_errors: yes
-  shell: pkill mcperf 
-  tags: 
+  tags:
   - kill
+  tasks:
+  - name: Kill agents    
+    ignore_errors: yes
+    shell: pkill mcperf 
+    tags: 
+    - kill
  
 - name: Run agents
   hosts: agents
   tags: 
   - run
-
   tasks:
   - name: Run agent
     shell: ./mcperf -T 40 -A
     async: 10000 
-    poll: 0     
+    poll: 0  
 
+- name: Check status
+  hosts: 
+  - agents
+  - server  
+  tags: 
+  - status
+  tasks:
+  - name: Check memcached status
+    shell: ps aux | grep memcached
+  - name: Check agent status
+    shell: ps aux | grep mcperf
