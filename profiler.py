@@ -16,7 +16,8 @@ class Profiling:
         self.terminate = threading.Condition()
         self.is_active = False
         self.events = self.get_perf_power_events()
-        self.timeseries = {}
+        self.power_timeseries = {}
+        self.cpu_util_timeseries = []
 
     def get_perf_power_events(self):
         events = []
@@ -39,13 +40,26 @@ class Profiling:
                 m = re.match("(.*)\s+.*\s+{}".format(e), l)
                 if m:
                     value = m.group(1)
-                    self.timeseries.setdefault(e, []).append(float(value))
+                    self.power_timeseries.setdefault(e, []).append(float(value))
+
+    def sample_cpu_util(self):
+        events_str = ','.join(self.events)
+        cmd = ['mpstat']
+        result = subprocess.run(cmd, stdout=subprocess.PIPE,stderr=subprocess.PIPE)
+        lines = result.stdout.decode('utf-8').splitlines() + result.stderr.decode('utf-8').splitlines()
+        for i in range(0, len(lines)):
+            if '%idle' in lines[i]:
+                idle_val = float(lines[i+1].split()[-1])
+                self.cpu_util_timeseries.append(100.00-idle_val)
+                return 
+
 
 profiling = Profiling()
 
 def profile_thread():
     while profiling.is_active:
         profiling.sample_perf_stat_power()
+        profiling.sample_cpu_util()
 
         profiling.terminate.acquire()
         profiling.terminate.wait(timeout=1)
@@ -56,7 +70,7 @@ def start():
     profiling.state_usage_start = power_state_usage()
     profiling.state_time_start = power_state_time()        
     profiling.is_active=True
-    x = threading.Thread(target=profile_thread)    
+    x = threading.Thread(target=profile_thread)
     x.daemon = True
     x.start()
 
@@ -105,14 +119,15 @@ def power_state_diff(new_vector, old_vector):
     
 def report():
     global profiling
-    timeseries = profiling.timeseries
+    cpu_util_timeseries = profiling.cpu_util_timeseries
+    power_timeseries = profiling.power_timeseries
     usage = []
     usage.append(power_state_names())
     usage.append(power_state_diff(profiling.state_usage_stop, profiling.state_usage_start))
     time = []
     time.append(power_state_names())
     time.append(power_state_diff(profiling.state_time_stop, profiling.state_time_start))
-    return [timeseries, usage, time]
+    return [cpu_util_timeseries, power_timeseries, usage, time]
 
 def server(port):
     hostname = socket.gethostname().split('.')[0]
@@ -154,8 +169,8 @@ class ReportAction:
     @staticmethod
     def action(args):
         with xmlrpc.client.ServerProxy("http://{}:{}/".format(args.hostname, args.port)) as proxy:
-            timeseries = proxy.report()
-            print(timeseries)
+            stats = proxy.report()
+            print(stats)
 
 def parse_args():
     """Configures and parses command-line arguments"""
