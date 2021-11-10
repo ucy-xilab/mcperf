@@ -70,8 +70,8 @@ def cpu_util_profile_thread():
         profiling.sample_cpu_util()
 
         profiling.terminate_cpu_util_profile_thread.acquire()
-        profiling.terminate.cpu_util_profile_thread.wait(timeout=1)
-        profiling.terminate.cpu_util_profile_thread.release()
+        profiling.terminate_cpu_util_profile_thread.wait(timeout=1)
+        profiling.terminate_cpu_util_profile_thread.release()
 
 def start():
     global profiling
