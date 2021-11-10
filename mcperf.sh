@@ -24,7 +24,6 @@ build_mcperf () {
   pushd memcache-perf
   make -j4
   popd
-  cp ./memcache-perf/mcperf .
 }
 
 build_and_deploy () {
