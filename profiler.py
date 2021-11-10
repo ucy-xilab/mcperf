@@ -13,7 +13,8 @@ import re
 
 class Profiling:
     def __init__(self):
-        self.terminate = threading.Condition()
+        self.terminate_perf_profile_thread = threading.Condition()
+        self.terminate_cpu_util_profile_thread = threading.Condition()
         self.is_active = False
         self.events = self.get_perf_power_events()
         self.power_timeseries = {}
@@ -44,42 +45,55 @@ class Profiling:
 
     def sample_cpu_util(self):
         events_str = ','.join(self.events)
-        cmd = ['mpstat']
+        cmd = ['mpstat', '1', '1']
         result = subprocess.run(cmd, stdout=subprocess.PIPE,stderr=subprocess.PIPE)
         lines = result.stdout.decode('utf-8').splitlines() + result.stderr.decode('utf-8').splitlines()
-        for i in range(0, len(lines)):
-            if '%idle' in lines[i]:
-                idle_val = float(lines[i+1].split()[-1])
+        for l in lines:
+            if 'Average' in l:
+                idle_val = float(l.split()[-1])
                 self.cpu_util_timeseries.append(100.00-idle_val)
                 return 
 
 
 profiling = Profiling()
 
-def profile_thread():
+def perf_profile_thread():
     while profiling.is_active:
         profiling.sample_perf_stat_power()
+
+        profiling.terminate_perf_profile_thread.acquire()
+        profiling.terminate_perf_profile_thread.wait(timeout=1)
+        profiling.terminate_perf_profile_thread.release()
+
+def cpu_util_profile_thread():
+    while profiling.is_active:
         profiling.sample_cpu_util()
 
-        profiling.terminate.acquire()
-        profiling.terminate.wait(timeout=1)
-        profiling.terminate.release()
+        profiling.terminate_cpu_util_profile_thread.acquire()
+        profiling.terminate.cpu_util_profile_thread.wait(timeout=1)
+        profiling.terminate.cpu_util_profile_thread.release()
 
 def start():
     global profiling
     profiling.state_usage_start = power_state_usage()
     profiling.state_time_start = power_state_time()        
     profiling.is_active=True
-    x = threading.Thread(target=profile_thread)
-    x.daemon = True
-    x.start()
+    p = threading.Thread(target=perf_profile_thread)
+    c = threading.Thread(target=cpu_util_profile_thread)
+    p.daemon = True
+    c.daemon = True
+    p.start()
+    c.start()
 
 def stop():
     global profiling
     profiling.is_active=False
-    profiling.terminate.acquire()
-    profiling.terminate.notify()
-    profiling.terminate.release()
+    profiling.terminate_perf_profile_thread.acquire()
+    profiling.terminate_perf_profile_thread.notify()
+    profiling.terminate_perf_profile_thread.release()
+    profiling.terminate_cpu_util_profile_thread.acquire()
+    profiling.terminate_cpu_util_profile_thread.notify()
+    profiling.terminate_cpu_util_profile_thread.release()
 
     profiling.state_usage_stop = power_state_usage()
     profiling.state_time_stop = power_state_time()        
