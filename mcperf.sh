@@ -28,9 +28,22 @@ build_mcperf () {
 }
 
 build_and_deploy () {
+  sudo apt install ansible -y
+  ansible-playbook -v -i hosts mcperf.yml --tags "dependencies"
   build_memcached
   build_mcperf
-  ansible-playbook -v -i hosts mcperf.yml --tags "configuration"
+  pushd ~
+  tar -czf mcperf.tgz mcperf
+  popd
+  #ansible-playbook -v -i hosts mcperf.yml --tags "configuration"
+}
+
+run_profiler () {
+  ansible-playbook -v -i hosts mcperf.yml --tags "run_profiler"
+}
+
+kill_profiler () {
+  ansible-playbook -v -i hosts mcperf.yml --tags "kill_profiler"
 }
 
 run_remote () {

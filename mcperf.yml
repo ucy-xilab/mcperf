@@ -1,8 +1,8 @@
 ---
-- name: Install dependencies and binaries
+- name: Install dependencies
   hosts: all
   tags: 
-  - configuration
+  - dependencies
   tasks:
   - name: Install dependencies
     become: yes
@@ -19,17 +19,45 @@
       - sysstat
       - linux-tools-common
       - linux-tools-generic
-      - linux-tools-5.4.0-88-generic
-  - name: Copy memcached binary
-    copy:
-      src: ./memcached/memcached
+      # - linux-tools-5.4.0-88-generic
+- name: Install binaries
+  hosts: all
+  tags: 
+  - configuration
+  tasks:
+  - name: Ansible check directory.
+    stat:
+      path: ~/mcperf
+      register: mcperf_folder    
+  - name: Ensures directory exists
+    unarchive: 
+      src: mcperf.tgz 
       dest: ~/
-      mode: 0700
-  - name: Copy memcache-perf binary
-    copy:
-      src: ./memcache-perf/mcperf
-      dest: ~/
-      mode: 0700
+      when: mcperf_folder.stat.exists == false
+
+- name: Kill remote profiler
+  hosts: server
+  tags: 
+  - kill_profiler
+  tasks:
+  - name: Get the PID of running process
+    ignore_errors: yes
+    shell: "ps -few | grep profiler | awk '{print $2}'"
+    register: running_processes
+  - name: Kill remote profiler       
+    ignore_errors: yes
+    shell: kill {{ item }}
+    with_items: "{{ running_processes.stdout_lines }}"
+
+- name: Run remote profiler
+  hosts: server
+  tags: 
+  - run_profiler
+  tasks:
+  - name: Run remote profiler
+    command: python3 profiler.py
+    async: 10000 
+    poll: 0
 
 - name: Kill memcached server
   hosts: server
