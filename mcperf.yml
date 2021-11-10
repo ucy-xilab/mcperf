@@ -20,20 +20,21 @@
       - linux-tools-common
       - linux-tools-generic
       # - linux-tools-5.4.0-88-generic
+      - linux-tools-4.15.0-159-generic
 - name: Install binaries
   hosts: all
   tags: 
   - configuration
   tasks:
-  - name: Ansible check directory.
+  - name: Check mcperf exists
     stat:
       path: ~/mcperf
-      register: mcperf_folder    
-  - name: Ensures directory exists
+    register: mcperf_folder    
+  - name: Deploy mcperf if not exists
     unarchive: 
-      src: mcperf.tgz 
+      src: ~/mcperf.tgz 
       dest: ~/
-      when: mcperf_folder.stat.exists == false
+    when: mcperf_folder.stat.exists == false
 
 - name: Kill remote profiler
   hosts: server
@@ -55,7 +56,7 @@
   - run_profiler
   tasks:
   - name: Run remote profiler
-    command: python3 profiler.py
+    command: python3 ~/mcperf/profiler.py
     async: 10000 
     poll: 0
 
@@ -74,7 +75,7 @@
   - run_server
   tasks:
   - name: Run memcached server
-    command: ./memcached -t 20 -c 32768
+    command: ~/mcperf/memcached/memcached -t 20 -c 32768
     async: 10000 
     poll: 0
 
@@ -93,7 +94,7 @@
   - run_agents
   tasks:
   - name: Run agent
-    shell: ./mcperf -T 40 -A
+    shell: ~/mcperf/memcache-perf/mcperf -T 40 -A
     async: 10000 
     poll: 0  
 

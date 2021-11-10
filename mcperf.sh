@@ -28,14 +28,13 @@ build_mcperf () {
 }
 
 build_and_deploy () {
-  sudo apt install ansible -y
   ansible-playbook -v -i hosts mcperf.yml --tags "dependencies"
   build_memcached
   build_mcperf
   pushd ~
   tar -czf mcperf.tgz mcperf
   popd
-  #ansible-playbook -v -i hosts mcperf.yml --tags "configuration"
+  ansible-playbook -v -i hosts mcperf.yml --tags "configuration"
 }
 
 run_profiler () {
