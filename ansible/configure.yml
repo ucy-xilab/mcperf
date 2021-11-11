@@ -22,7 +22,9 @@
       # - linux-tools-5.4.0-88-generic
       - linux-tools-4.15.0-159-generic
 - name: Install mcperf
-  hosts: all
+  hosts: 
+  - memcached
+  - agents
   tags: 
   - mcperf
   tasks:

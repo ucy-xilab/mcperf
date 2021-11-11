@@ -1,4 +1,7 @@
-[server]
+[master]
+node0
+
+[memcached]
 node1
 
 [agents]

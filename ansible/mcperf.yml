@@ -1,6 +1,6 @@
 ---
 - name: Kill memcached server
-  hosts: server
+  hosts: memcached
   tags: 
   - kill_server
   tasks:
@@ -9,7 +9,7 @@
     shell: pkill memcached 
 
 - name: Run memcached server
-  hosts: server
+  hosts: memcached
   tags: 
   - run_server
   tasks:
@@ -18,15 +18,6 @@
     async: 10000 
     poll: 0
 
-- name: Kill agents
-  hosts: agents
-  tags:
-  - kill_agents
-  tasks:
-  - name: Kill agents    
-    ignore_errors: yes
-    shell: pkill mcperf 
- 
 - name: Run agents
   hosts: agents
   tags: 
@@ -37,10 +28,19 @@
     async: 10000 
     poll: 0  
 
+- name: Kill agents
+  hosts: agents
+  tags:
+  - kill_agents
+  tasks:
+  - name: Kill agents    
+    ignore_errors: yes
+    shell: pkill mcperf 
+ 
 - name: Check status
   hosts: 
   - agents
-  - server  
+  - memcached
   tags: 
   - status
   tasks:
