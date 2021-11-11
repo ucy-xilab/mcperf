@@ -11,47 +11,48 @@ import threading
 import subprocess
 import re
 
-def power_state_names():
-    state_names = []
-    stream = os.popen('ls /sys/devices/system/cpu/cpu0/cpuidle/')
-    states = stream.readlines()
-    for state in states:
-        state = state.strip()
-        stream = os.popen("cat /sys/devices/system/cpu/cpu0/cpuidle/{}/name".format(state))
-        state_names.append(stream.read().strip())
-    return state_names
+# TODO: ProfilerGroup has a tick thread that wakes up at the minimum sampling period and wakes up each profiler if it has to wake up
 
-def power_state_metric(metric):
-    state_names = power_state_names()
-    cpu_state_values = []
-    for cpu in range(0, os.cpu_count()):
-        state_values = []
-        for state in range(0, len(state_names)):
-            output = open("/sys/devices/system/cpu/cpu{}/cpuidle/state{}/{}".format(cpu, state, metric)).read()
-            state_values.append(int(output))
-        cpu_state_values.append(state_values)
-    return cpu_state_values
-
-def power_state_usage():
-    return power_state_metric('usage')
-
-def power_state_time():
-    return power_state_metric('time')
-
-def power_state_diff(new_vector, old_vector):
-    diff = []
-    for (new, old) in zip(new_vector, old_vector):
-        diff.append([x[0] - x[1] for x in zip(new, old)])
-    return diff
+# def power_state_diff(new_vector, old_vector):
+#     diff = []
+#     for (new, old) in zip(new_vector, old_vector):
+#         diff.append([x[0] - x[1] for x in zip(new, old)])
+#     return diff
  
 class EventProfiling:
     def __init__(self):
-        self.terminate_perf_profile_thread = threading.Condition()
-        self.terminate_cpu_util_profile_thread = threading.Condition()
+        self.terminate_thread = threading.Condition()
         self.is_active = False
+
+    def profile_thread(self):
+        while self.is_active:
+            timestamp = int(time.time())
+            self.sample(timestamp)
+
+            self.terminate_thread.acquire()
+            self.terminate_thread.wait(timeout=1)
+            self.terminate_thread.release()
+
+    def start(self):
+        self.is_active=True
+        self.thread = threading.Thread(target=EventProfiling.profile_thread, args=(self,))
+        self.thread.daemon = True
+        self.thread.start()
+
+    def stop(self):
+        self.is_active=False
+        self.terminate_thread.acquire()
+        self.terminate_thread.notify()
+        self.terminate_thread.release()
+
+
+class PerfEventProfiling(EventProfiling):
+    def __init__(self):
+        super().__init__()
         self.events = self.get_perf_power_events()
-        self.power_timeseries = {}
-        self.cpu_util_timeseries = []
+        self.timeseries = {}
+        for e in self.events:
+            self.timeseries[e] = []
 
     def get_perf_power_events(self):
         events = []
@@ -63,7 +64,7 @@ class EventProfiling:
                 events.append(m.group(1))
         return events
 
-    def sample_perf_stat_power(self):
+    def sample(self, timestamp):
         events_str = ','.join(self.events)
         cmd = ['sudo', 'perf', 'stat', '-a', '-e', events_str, 'sleep', '1']
         result = subprocess.run(cmd, stdout=subprocess.PIPE,stderr=subprocess.PIPE)
@@ -74,79 +75,94 @@ class EventProfiling:
                 m = re.match("(.*)\s+.*\s+{}".format(e), l)
                 if m:
                     value = m.group(1)
-                    self.power_timeseries.setdefault(e, []).append(float(value))
+                    self.timeseries[e].append((timestamp, float(value)))
 
-    def sample_cpu_util(self):
-        events_str = ','.join(self.events)
+    def report(self):
+        return self.timeseries
+
+class MpstatProfiling(EventProfiling):
+    def __init__(self):
+        super().__init__()
+        self.timeseries = {}
+        self.timeseries['cpu_util'] = []
+
+    def sample(self, timestamp):
         cmd = ['mpstat', '1', '1']
         result = subprocess.run(cmd, stdout=subprocess.PIPE,stderr=subprocess.PIPE)
         lines = result.stdout.decode('utf-8').splitlines() + result.stderr.decode('utf-8').splitlines()
         for l in lines:
             if 'Average' in l:
                 idle_val = float(l.split()[-1])
-                self.cpu_util_timeseries.append(100.00-idle_val)
+                self.timeseries['cpu_util'].append((timestamp, 100.00-idle_val))
                 return 
 
-def perf_profile_thread(profiling):
-    while profiling.is_active:
-        profiling.sample_perf_stat_power()
+    def report(self):
+        return self.timeseries
 
-        profiling.terminate_perf_profile_thread.acquire()
-        profiling.terminate_perf_profile_thread.wait(timeout=1)
-        profiling.terminate_perf_profile_thread.release()
+class StateProfiling(EventProfiling):
+    def __init__(self):
+        super().__init__()
+        self.state_names = StateProfiling.power_state_names()
+        self.timeseries = {}
 
-def cpu_util_profile_thread(profiling):
-    while profiling.is_active:
-        profiling.sample_cpu_util()
+    @staticmethod
+    def power_state_names():
+        state_names = []
+        stream = os.popen('ls /sys/devices/system/cpu/cpu0/cpuidle/')
+        states = stream.readlines()
+        for state in states:
+            state = state.strip()
+            stream = os.popen("cat /sys/devices/system/cpu/cpu0/cpuidle/{}/name".format(state))
+            state_names.append(stream.read().strip())
+        return state_names
 
-        profiling.terminate_cpu_util_profile_thread.acquire()
-        profiling.terminate_cpu_util_profile_thread.wait(timeout=1)
-        profiling.terminate_cpu_util_profile_thread.release()
+    @staticmethod
+    def power_state_metric(cpu_id, state_id, metric):
+        output = open("/sys/devices/system/cpu/cpu{}/cpuidle/state{}/{}".format(cpu_id, state_id, metric)).read()
+        return int(output)
 
-class ProfilingService:
-    def __init__(self, event_profiling):
-        self.event_profiling = event_profiling
-        
-    def start(self):
-        profiling = self.event_profiling
-        profiling.state_usage_start = power_state_usage()
-        profiling.state_time_start = power_state_time()        
-        profiling.is_active=True
-        p = threading.Thread(target=perf_profile_thread, args=(profiling,))
-        c = threading.Thread(target=cpu_util_profile_thread, args=(profiling,))
-        p.daemon = True
-        c.daemon = True
-        p.start()
-        c.start()
+    def sample_power_state_metric(self, metric, timestamp):
+        for cpu_id in range(0, os.cpu_count()):
+            for state_id in range(0, len(self.state_names)):
+                state_name = self.state_names[state_id]
+                key = "CPU{}.{}.{}".format(cpu_id, state_name, metric)
+                value = StateProfiling.power_state_metric(cpu_id, state_id, metric)
+                self.timeseries.setdefault(key, []).append((timestamp, value))
 
-    def stop(self):
-        profiling = self.event_profiling
-        profiling.is_active=False
-        profiling.terminate_perf_profile_thread.acquire()
-        profiling.terminate_perf_profile_thread.notify()
-        profiling.terminate_perf_profile_thread.release()
-        profiling.terminate_cpu_util_profile_thread.acquire()
-        profiling.terminate_cpu_util_profile_thread.notify()
-        profiling.terminate_cpu_util_profile_thread.release()
-
-        profiling.state_usage_stop = power_state_usage()
-        profiling.state_time_stop = power_state_time()        
+    def sample(self, timestamp):
+        self.sample_power_state_metric('usage', timestamp)
+        self.sample_power_state_metric('time', timestamp)
 
     def report(self):
-        profiling = self.event_profiling
-        cpu_util_timeseries = profiling.cpu_util_timeseries
-        power_timeseries = profiling.power_timeseries
-        usage = []
-        usage.append(power_state_names())
-        usage.append(power_state_diff(profiling.state_usage_stop, profiling.state_usage_start))
-        time = []
-        time.append(power_state_names())
-        time.append(power_state_diff(profiling.state_time_stop, profiling.state_time_start))
-        return [cpu_util_timeseries, power_timeseries, usage, time]
+        print('report')
+        return self.timeseries
+
+class ProfilingService:
+    def __init__(self, profilers):
+        self.profilers = profilers
+        
+    def start(self):
+        for p in self.profilers:
+            p.start()        
+
+    def stop(self):
+        for p in self.profilers:
+            p.stop()        
+
+    def report(self):
+        timeseries = {}
+        for p in self.profilers:
+            print(p.report())
+            t = p.report()
+            timeseries = {**timeseries, **t}
+        return timeseries
+
 
 def server(port):
-    event_profiling = EventProfiling()
-    profiling_service = ProfilingService(event_profiling)
+    perf_event_profiling = PerfEventProfiling()
+    mpstat_profiling = MpstatProfiling()
+    state_profiling = StateProfiling()
+    profiling_service = ProfilingService([perf_event_profiling, mpstat_profiling, state_profiling])
     hostname = socket.gethostname().split('.')[0]
     server = SimpleXMLRPCServer((hostname, port), allow_none=True)
     server.register_instance(profiling_service)
