@@ -1,28 +1,4 @@
 ---
-- name: Kill remote profiler
-  hosts: server
-  tags: 
-  - kill_profiler
-  tasks:
-  - name: Get the PID of running process
-    ignore_errors: yes
-    shell: "ps -few | grep profiler | awk '{print $2}'"
-    register: running_processes
-  - name: Kill remote profiler       
-    ignore_errors: yes
-    shell: kill {{ item }}
-    with_items: "{{ running_processes.stdout_lines }}"
-
-- name: Run remote profiler
-  hosts: server
-  tags: 
-  - run_profiler
-  tasks:
-  - name: Run remote profiler
-    command: python3 ~/mcperf/profiler.py
-    async: 10000 
-    poll: 0
-
 - name: Kill memcached server
   hosts: server
   tags: 
