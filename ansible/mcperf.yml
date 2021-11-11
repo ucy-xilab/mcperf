@@ -18,6 +18,15 @@
     async: 10000 
     poll: 0
 
+- name: Kill agents
+  hosts: agents
+  tags:
+  - kill_agents
+  tasks:
+  - name: Kill agents    
+    ignore_errors: yes
+    shell: pkill mcperf 
+
 - name: Run agents
   hosts: agents
   tags: 
@@ -28,15 +37,6 @@
     async: 10000 
     poll: 0  
 
-- name: Kill agents
-  hosts: agents
-  tags:
-  - kill_agents
-  tasks:
-  - name: Kill agents    
-    ignore_errors: yes
-    shell: pkill mcperf 
- 
 - name: Check status
   hosts: 
   - agents
