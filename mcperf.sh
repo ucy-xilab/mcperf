@@ -55,7 +55,7 @@ kill_remote () {
 }
 
 run_server () {
-  ansible-playbook -v -i hosts ansbile/mcperf.yml --tags "run_server"
+  ansible-playbook -v -i hosts ansible/mcperf.yml --tags "run_server"
 }
 
 kill_server () {
