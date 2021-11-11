@@ -27,13 +27,13 @@ build_mcperf () {
 }
 
 build_and_deploy () {
-  ansible-playbook -v -i hosts mcperf.yml --tags "dependencies"
+  ansible-playbook -v -i hosts configure.yml --tags "dependencies"
   build_memcached
   build_mcperf
   pushd ~
   tar -czf mcperf.tgz mcperf
   popd
-  ansible-playbook -v -i hosts mcperf.yml --tags "configuration"
+  ansible-playbook -v -i hosts configure.yml --tags "mcperf"
 }
 
 run_profiler () {
@@ -65,6 +65,11 @@ status_remote () {
   ansible-playbook -v -i hosts mcperf.yml --tags "status"
 }
 
+run () {
+  python3 profiler.py -n node1 start
+  ./memcache-perf/mcperf -s node1 --noload -B -T 16 -Q 1000 -D 4 -C 4 -a node2 -c 4 -q 2000000
+  python3 profiler.py -n node1 stop
+}
 
 
 "$@"

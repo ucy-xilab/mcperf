@@ -1,0 +1,39 @@
+---
+- name: Install package dependencies
+  hosts: all
+  tags: 
+  - dependencies
+  tasks:
+  - name: Install libraries
+    become: yes
+    apt:
+      update_cache: yes
+      pkg:
+      - libevent-dev 
+      - libzmq3-dev
+  - name: Install tools
+    become: yes
+    apt:
+      update_cache: yes
+      pkg:
+      - sysstat
+      - linux-tools-common
+      - linux-tools-generic
+      # - linux-tools-5.4.0-88-generic
+      - linux-tools-4.15.0-159-generic
+- name: Install mcperf
+  hosts: all
+  tags: 
+  - mcperf
+  tasks:
+  - name: Check mcperf exists
+    stat:
+      path: ~/mcperf
+    register: mcperf_folder    
+  - name: Install mcperf if not exists
+    unarchive: 
+      src: ~/mcperf.tgz 
+      dest: ~/
+    when: mcperf_folder.stat.exists == false
+
+
