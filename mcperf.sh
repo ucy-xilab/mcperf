@@ -3,7 +3,7 @@
 export ANSIBLE_HOST_KEY_CHECKING=False
 
 build_memcached () {
-  if [ -d "memcached" ]
+  if [[ -f "memcached/memcached" ]]
   then 
     return
   fi
@@ -16,7 +16,7 @@ build_memcached () {
 }
 
 build_mcperf () {
-  if [ -d "memcache-perf" ]
+  if [[ -f "memcache-perf/mcperf" ]]
   then 
     return
   fi
