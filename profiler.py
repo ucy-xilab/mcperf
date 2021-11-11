@@ -26,7 +26,7 @@ class EventProfiling:
 
     def profile_thread(self):
         while self.is_active:
-            timestamp = int(time.time())
+            timestamp = str(int(time.time()))
             self.sample(timestamp)
 
             self.terminate_thread.acquire()
@@ -75,7 +75,7 @@ class PerfEventProfiling(EventProfiling):
                 m = re.match("(.*)\s+.*\s+{}".format(e), l)
                 if m:
                     value = m.group(1)
-                    self.timeseries[e].append((timestamp, float(value)))
+                    self.timeseries[e].append((timestamp, str(float(value))))
 
     def report(self):
         return self.timeseries
@@ -93,7 +93,8 @@ class MpstatProfiling(EventProfiling):
         for l in lines:
             if 'Average' in l:
                 idle_val = float(l.split()[-1])
-                self.timeseries['cpu_util'].append((timestamp, 100.00-idle_val))
+                util_val = str(100.00-idle_val)
+                self.timeseries['cpu_util'].append((timestamp, util_val))
                 return 
 
     def report(self):
@@ -119,7 +120,7 @@ class StateProfiling(EventProfiling):
     @staticmethod
     def power_state_metric(cpu_id, state_id, metric):
         output = open("/sys/devices/system/cpu/cpu{}/cpuidle/state{}/{}".format(cpu_id, state_id, metric)).read()
-        return int(output)
+        return output.strip()
 
     def sample_power_state_metric(self, metric, timestamp):
         for cpu_id in range(0, os.cpu_count()):
@@ -134,7 +135,6 @@ class StateProfiling(EventProfiling):
         self.sample_power_state_metric('time', timestamp)
 
     def report(self):
-        print('report')
         return self.timeseries
 
 class ProfilingService:
@@ -152,7 +152,6 @@ class ProfilingService:
     def report(self):
         timeseries = {}
         for p in self.profilers:
-            print(p.report())
             t = p.report()
             timeseries = {**timeseries, **t}
         return timeseries
