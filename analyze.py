@@ -83,8 +83,10 @@ def main(argv):
     fig, ax = plt.subplots()
 
     for bar in bars:
+        bottom = 0
         for (state_name, val) in zip(state_names, bar):
-            ax.bar(labels, val, width, label=state_name)
+            ax.bar(labels, val, width, label=state_name, bottom=bottom)
+            bottom += val
 
     ax.set_ylabel('C-State Residency')
     ax.set_xlabel('Request Rate')
