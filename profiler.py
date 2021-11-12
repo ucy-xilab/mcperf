@@ -195,12 +195,28 @@ class ReportAction:
     def add_parser(subparsers):
         parser = subparsers.add_parser('report', help = "Report profiling")
         parser.set_defaults(func=ReportAction.action)
+        parser.add_argument(
+                    "-d", "--directory", dest='directory',
+                    help="directory where to output results")
 
     @staticmethod
     def action(args):
         with xmlrpc.client.ServerProxy("http://{}:{}/".format(args.hostname, args.port)) as proxy:
             stats = proxy.report()
-            print(stats)
+            if args.directory:
+                ReportAction.write_output(stats, args.directory)
+
+    @staticmethod
+    def write_output(stats, directory):
+        if not os.path.exists(directory):
+            os.makedirs(directory)        
+        for metric_name,timeseries in stats.items():
+            metric_file_name = metric_name.replace('/', '-')
+            metric_file_path = os.path.join(directory, metric_file_name)
+            with open(metric_file_path, 'w') as mf:
+                mf.write(metric_name + '\n')
+                for val in timeseries:
+                    mf.write(','.join(val) + '\n')
 
 def parse_args():
     """Configures and parses command-line arguments"""

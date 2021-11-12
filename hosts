@@ -1,8 +1,8 @@
 [master]
-node0
+node0.hvolos01-110470.ucy-cs499-dc-pg0.wisc.cloudlab.us
 
 [memcached]
-node1
+node0.hvolos01-110470.ucy-cs499-dc-pg0.wisc.cloudlab.us
 
 [agents]
-node2
+node0.hvolos01-110470.ucy-cs499-dc-pg0.wisc.cloudlab.us
