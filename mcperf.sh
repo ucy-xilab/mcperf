@@ -2,6 +2,9 @@
 
 export ANSIBLE_HOST_KEY_CHECKING=False
 
+MEMCACHED_WORKER_THREADS=10
+MEMCACHED_PIN_WORKER_THREADS=true
+
 build_memcached () {
   if [[ -f "memcached/memcached" ]]
   then 
@@ -47,19 +50,23 @@ kill_profiler () {
 }
 
 run_remote () {
-  ansible-playbook -v -i hosts ansible/mcperf.yml --tags "run_server,run_agents"
+  vars="WORKER_THREADS=${MEMCACHED_WORKER_THREADS} PIN_THREADS=${MEMCACHED_PIN_WORKER_THREADS}"
+  ansible-playbook -v -i hosts ansible/mcperf.yml -e "$vars" --tags "run_server,run_agents"
 }
 
 kill_remote () {
-  ansible-playbook -v -i hosts ansible/mcperf.yml --tags "kill_server,run_servers"
+  vars="WORKER_THREADS=${MEMCACHED_WORKER_THREADS} PIN_THREADS=${MEMCACHED_PIN_WORKER_THREADS}"
+  ansible-playbook -v -i hosts ansible/mcperf.yml -e "$vars" --tags "kill_server,run_servers"
 }
 
 run_server () {
-  ansible-playbook -v -i hosts ansible/mcperf.yml --tags "run_server"
+  vars="WORKER_THREADS=${MEMCACHED_WORKER_THREADS} PIN_THREADS=${MEMCACHED_PIN_WORKER_THREADS}"
+  ansible-playbook -v -i hosts ansible/mcperf.yml -e "$vars" --tags "run_server"
 }
 
 kill_server () {
-  ansible-playbook -v -i hosts ansible/mcperf.yml --tags "kill_server"
+  vars="WORKER_THREADS=${MEMCACHED_WORKER_THREADS} PIN_THREADS=${MEMCACHED_PIN_WORKER_THREADS}"
+  ansible-playbook -v -i hosts ansible/mcperf.yml -e "$vars" --tags "kill_server"
 }
 
 status_remote () {

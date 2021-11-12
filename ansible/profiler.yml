@@ -1,6 +1,6 @@
 ---
 - name: Run remote profiler
-  hosts: server
+  hosts: memcached
   tags: 
   - run_profiler
   tasks:
@@ -9,7 +9,7 @@
     async: 10000 
     poll: 0
 - name: Kill remote profiler
-  hosts: server
+  hosts: memcached
   tags: 
   - kill_profiler
   tasks:
