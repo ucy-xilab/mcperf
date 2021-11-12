@@ -81,8 +81,9 @@ def plot_residency_per_qps(data_dir, qps_list):
         for state_id in range(0, len(state_names)):
             bar.append(time_perc[state_id])
         bars.append(bar)
-        width = 0.35       # the width of the bars: can also be len(x) sequence
         print(bar)
+    
+    width = 0.35       # the width of the bars: can also be len(x) sequence
         
     fig, ax = plt.subplots()
 
