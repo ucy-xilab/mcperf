@@ -14,9 +14,12 @@
   - run_server
   tasks:
   - name: Run memcached server
-    command: ~/mcperf/memcached/memcached -t 20 -c 32768
+    command: ~/mcperf/memcached/memcached -t {{ WORKER_THREADS }} -c 32768
     async: 10000 
     poll: 0
+  - name: Pin memcached worker threads 
+    command: ~/mcperf/memcached-pt.py {{ WORKER_THREADS }}
+    when: PIN_THREADS is defined and PIN_THREADS|bool == true
 
 - name: Kill agents
   hosts: agents

@@ -35,6 +35,7 @@ class EventProfiling:
             self.terminate_thread.release()
 
     def start(self):
+        self.clear()
         timestamp = str(int(time.time()))
         self.sample(timestamp)
         if self.sampling_period:
@@ -84,6 +85,9 @@ class PerfEventProfiling(EventProfiling):
                     value = m.group(1)
                     self.timeseries[e].append((timestamp, str(float(value))))
 
+    def clear(self):
+        self.timeseries = {}
+
     def report(self):
         return self.timeseries
 
@@ -103,6 +107,9 @@ class MpstatProfiling(EventProfiling):
                 util_val = str(100.00-idle_val)
                 self.timeseries['cpu_util'].append((timestamp, util_val))
                 return 
+
+    def clear(self):
+        self.timeseries = {}
 
     def report(self):
         return self.timeseries
@@ -140,6 +147,9 @@ class StateProfiling(EventProfiling):
     def sample(self, timestamp):
         self.sample_power_state_metric('usage', timestamp)
         self.sample_power_state_metric('time', timestamp)
+
+    def clear(self):
+        self.timeseries = {}
 
     def report(self):
         return self.timeseries
