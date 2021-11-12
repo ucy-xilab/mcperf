@@ -1,5 +1,5 @@
 python3 profiler.py -n node0 start
-COUNTER=0; while [ $COUNTER -lt 3000000 ]; do let COUNTER=COUNTER+1; done;
-COUNTER=0; while [ $COUNTER -lt 3000000 ]; do let COUNTER=COUNTER+1; done;
+taskset -c 4 ./spin 10
+#sleep 10
 python3 profiler.py -n node0 stop
 python3 profiler.py -n node0 report -d ~/data/0/
