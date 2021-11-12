@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 from xmlrpc.server import SimpleXMLRPCServer
 import xmlrpc.client
 import argparse
