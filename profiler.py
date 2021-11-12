@@ -227,6 +227,8 @@ class ReportAction:
             stats = proxy.report()
             if args.directory:
                 ReportAction.write_output(stats, args.directory)
+            else:
+                print(stats)
 
     @staticmethod
     def write_output(stats, directory):
