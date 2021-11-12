@@ -12,7 +12,7 @@ import subprocess
 import re
 
 # TODO: ProfilerGroup has a tick thread that wakes up at the minimum sampling period and wakes up each profiler if it has to wake up
-
+# TODO: Use sampling period and sampling length
 # def power_state_diff(new_vector, old_vector):
 #     diff = []
 #     for (new, old) in zip(new_vector, old_vector):
@@ -20,9 +20,10 @@ import re
 #     return diff
  
 class EventProfiling:
-    def __init__(self):
+    def __init__(self, sampling_period = None):
         self.terminate_thread = threading.Condition()
         self.is_active = False
+        self.sampling_period = sampling_period
 
     def profile_thread(self):
         while self.is_active:
@@ -34,21 +35,27 @@ class EventProfiling:
             self.terminate_thread.release()
 
     def start(self):
-        self.is_active=True
-        self.thread = threading.Thread(target=EventProfiling.profile_thread, args=(self,))
-        self.thread.daemon = True
-        self.thread.start()
+        timestamp = str(int(time.time()))
+        self.sample(timestamp)
+        if self.sampling_period:
+            self.is_active=True
+            self.thread = threading.Thread(target=EventProfiling.profile_thread, args=(self,))
+            self.thread.daemon = True
+            self.thread.start()
 
     def stop(self):
-        self.is_active=False
-        self.terminate_thread.acquire()
-        self.terminate_thread.notify()
-        self.terminate_thread.release()
+        if self.sampling_period:
+            self.is_active=False
+            self.terminate_thread.acquire()
+            self.terminate_thread.notify()
+            self.terminate_thread.release()
+        timestamp = str(int(time.time()))
+        self.sample(timestamp)
 
 
 class PerfEventProfiling(EventProfiling):
     def __init__(self):
-        super().__init__()
+        super().__init__(sampling_period=1)
         self.events = self.get_perf_power_events()
         self.timeseries = {}
         for e in self.events:
@@ -82,7 +89,7 @@ class PerfEventProfiling(EventProfiling):
 
 class MpstatProfiling(EventProfiling):
     def __init__(self):
-        super().__init__()
+        super().__init__(sampling_period=1)
         self.timeseries = {}
         self.timeseries['cpu_util'] = []
 
@@ -102,7 +109,7 @@ class MpstatProfiling(EventProfiling):
 
 class StateProfiling(EventProfiling):
     def __init__(self):
-        super().__init__()
+        super().__init__(sampling_period=None)
         self.state_names = StateProfiling.power_state_names()
         self.timeseries = {}
 
