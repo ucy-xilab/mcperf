@@ -89,6 +89,8 @@ class PerfEventProfiling(EventProfiling):
 
     def clear(self):
         self.timeseries = {}
+        for e in self.events:
+            self.timeseries[e] = []
 
     def report(self):
         return self.timeseries
@@ -112,6 +114,7 @@ class MpstatProfiling(EventProfiling):
 
     def clear(self):
         self.timeseries = {}
+        self.timeseries['cpu_util'] = []
 
     def report(self):
         return self.timeseries
@@ -224,6 +227,8 @@ class ReportAction:
             stats = proxy.report()
             if args.directory:
                 ReportAction.write_output(stats, args.directory)
+            else:
+                print(stats)
 
     @staticmethod
     def write_output(stats, directory):

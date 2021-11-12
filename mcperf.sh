@@ -56,7 +56,7 @@ run_remote () {
 
 kill_remote () {
   vars="WORKER_THREADS=${MEMCACHED_WORKER_THREADS} PIN_THREADS=${MEMCACHED_PIN_WORKER_THREADS}"
-  ansible-playbook -v -i hosts ansible/mcperf.yml -e "$vars" --tags "kill_server,run_servers"
+  ansible-playbook -v -i hosts ansible/mcperf.yml -e "$vars" --tags "kill_server,kill_agents"
 }
 
 run_server () {

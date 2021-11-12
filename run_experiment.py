@@ -20,7 +20,7 @@ def run_single_experiment(root_results_dir, name, idx, qps):
     results_dir_path = os.path.join(root_results_dir, results_dir_name)
     memcached_results_dir_path = os.path.join(results_dir_path, 'memcached')
     exec_command("./profiler.py -n node1 start")
-    stdout = exec_command("./memcache-perf/mcperf -s node1 --noload -B -T 40 -Q 1000 -D 4 -C 4 -a node2 -c 4 -q {} -t 1".format(qps))    
+    stdout = exec_command("./memcache-perf/mcperf -s node1 --noload -B -T 40 -Q 1000 -D 4 -C 4 -a node2 -a node3 -a node4 -a node5 -c 4 -q {} -t 10".format(qps))    
     exec_command("./profiler.py -n node1 stop")
     exec_command("./profiler.py -n node1 report -d {}".format(memcached_results_dir_path))
     mcperf_results_path_name = os.path.join(results_dir_path, 'mcperf')
@@ -30,9 +30,11 @@ def run_single_experiment(root_results_dir, name, idx, qps):
 
 def run_multiple_experiments(root_results_dir, name):
     request_qps = [10000, 50000, 100000, 200000, 300000, 400000, 500000, 1000000, 2000000]
+    root_results_dir = os.path.join(root_results_dir, name)
+    exec_command("./memcache-perf/mcperf -s node1 --loadonly")
     for q in request_qps:
-        name = '-'.join([name, str(q)])
-        run_single_experiment(root_results_dir, name, 0, q)
+        instance_name = '-'.join(['qps' + str(q)])
+        run_single_experiment(root_results_dir, instance_name, 0, q)
 
 def main():
     logging.getLogger('').setLevel(logging.INFO)
