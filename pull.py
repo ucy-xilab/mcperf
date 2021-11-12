@@ -94,5 +94,5 @@ def exec_chain(command_chain, username, hostname):
 logging.getLogger('').setLevel(logging.INFO)
 create_tar_cmd = ShellCommand('tar -cf data.tgz data')
 scp_tar_cmd = FileGetCommand('/users/hvolos01/data.tgz', '/tmp/data.tgz')
-#exec_chain([create_tar_cmd, scp_tar_cmd], 'hvolos01', 'node0.hvolos01-110470.ucy-cs499-dc-pg0.wisc.cloudlab.us')
+exec_chain([create_tar_cmd, scp_tar_cmd], 'hvolos01', 'node0.hvolos01-110515.ucy-cs499-dc-pg0.wisc.cloudlab.us')
 os.system('tar -xf /tmp/data.tgz')

@@ -67,32 +67,43 @@ def avg_state_time_perc(data_dir, cpu_id_list):
     avg_state_time_perc = [a/b for a, b in zip(total_state_time_perc, [cpu_count]*len(total_state_time_perc))]
     return avg_state_time_perc
 
-def main(argv):
-    data_dir = argv[1]
-    time_perc = avg_state_time_perc(data_dir, range(0, 40))
-    state_names = ['C0', 'C1', 'C1E', 'C6']
-
-    labels = ['Q00']
+def plot_residency_per_qps(data_dir, qps_list):
     bars = []
-    bar = []
-    for state_id in range(0, len(state_names)):
-        bar.append(time_perc[state_id])
-    bars.append(bar)
-    width = 0.35       # the width of the bars: can also be len(x) sequence
-
+    labels = []
+    state_names = ['C0', 'C1', 'C1E', 'C6']
+    for qps in qps_list:
+        instance_name = '-'.join(['qps' + str(qps), '0'])
+        memcached_results_dir = os.path.join(data_dir, instance_name, 'memcached')
+        time_perc = avg_state_time_perc(memcached_results_dir, range(0, 10))
+    
+        labels.append(str(int(qps/1000))+'K')
+        bar = []
+        for state_id in range(0, len(state_names)):
+            bar.append(time_perc[state_id])
+        bars.append(bar)
+        width = 0.35       # the width of the bars: can also be len(x) sequence
+        print(bar)
+        
     fig, ax = plt.subplots()
 
-    for bar in bars:
-        bottom = 0
-        for (state_name, val) in zip(state_names, bar):
-            ax.bar(labels, val, width, label=state_name, bottom=bottom)
-            bottom += val
+    bottom = [0] * len(bars)
+    for state_id, state_name in enumerate(state_names):
+        vals = []
+        for bar in bars:
+            vals.append(bar[state_id])
+        ax.bar(labels, vals, width, label=state_name, bottom=bottom)
+        for i, val in enumerate(vals):
+            bottom[i] += val    
 
     ax.set_ylabel('C-State Residency')
     ax.set_xlabel('Request Rate')
     ax.legend()
 
     plt.show()
+
+def main(argv):
+    data_dir = argv[1]
+    plot_residency_per_qps(data_dir, [10000, 50000, 100000, 200000, 300000, 400000, 500000, 1000000, 2000000])
 
 if __name__ == '__main__':
     main(sys.argv)
