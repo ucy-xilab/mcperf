@@ -57,8 +57,8 @@ class EventProfiling:
 
 
 class PerfEventProfiling(EventProfiling):
-    def __init__(self):
-        super().__init__(sampling_period=1)
+    def __init__(self, sampling_period=1):
+        super().__init__(sampling_period)
         self.events = self.get_perf_power_events()
         self.timeseries = {}
         for e in self.events:
@@ -96,8 +96,8 @@ class PerfEventProfiling(EventProfiling):
         return self.timeseries
 
 class MpstatProfiling(EventProfiling):
-    def __init__(self):
-        super().__init__(sampling_period=1)
+    def __init__(self, sampling_period=1):
+        super().__init__(sampling_period)
         self.timeseries = {}
         self.timeseries['cpu_util'] = []
 
@@ -120,8 +120,8 @@ class MpstatProfiling(EventProfiling):
         return self.timeseries
 
 class StateProfiling(EventProfiling):
-    def __init__(self):
-        super().__init__(sampling_period=None)
+    def __init__(self, sampling_period=None):
+        super().__init__(sampling_period)
         self.state_names = StateProfiling.power_state_names()
         self.timeseries = {}
 
@@ -182,7 +182,7 @@ class ProfilingService:
 def server(port):
     perf_event_profiling = PerfEventProfiling()
     mpstat_profiling = MpstatProfiling()
-    state_profiling = StateProfiling()
+    state_profiling = StateProfiling(sampling_period=1)
     profiling_service = ProfilingService([perf_event_profiling, mpstat_profiling, state_profiling])
     hostname = socket.gethostname().split('.')[0]
     server = SimpleXMLRPCServer((hostname, port), allow_none=True)
