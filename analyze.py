@@ -106,7 +106,6 @@ def cpu_state_time_perc(data, cpu_id):
     state_names[0] = 'C0' 
     return state_time_perc
 
-
 def avg_state_time_perc(stats, cpu_id_list):
     total_state_time_perc = [0]*4
     cpu_count = 0
@@ -121,7 +120,7 @@ def plot_residency_per_qps(stats, qps_list):
     labels = []
     state_names = ['C0', 'C1', 'C1E', 'C6']
     for qps in qps_list:
-        instance_name = '-'.join(['qps' + str(qps), '0'])
+        instance_name = '-'.join(['qps=' + str(qps), '0'])
         time_perc = avg_state_time_perc(stats[instance_name]['server'], range(0, 10))
     
         labels.append(str(int(qps/1000))+'K')
@@ -150,14 +149,13 @@ def plot_residency_per_qps(stats, qps_list):
 
     plt.show()
 
-def plot_latency_per_qps(data_dir, qps_list):
+def plot_latency_per_qps(stats, qps_list):
     read_avg = []
     read_p99 = []
     axis_scale = 0.001
     for qps in qps_list:
-        instance_name = '-'.join(['qps' + str(qps), '0'])
-        mcperf_results_path = os.path.join(data_dir, instance_name, 'mcperf')
-        mcperf_stats = parse_mcperf_stats(mcperf_results_path)
+        instance_name = '-'.join(['qps=' + str(qps), '0'])
+        mcperf_stats = stats[instance_name]['mcperf']
         read_avg.append(mcperf_stats['read']['avg'])
         read_p99.append(mcperf_stats['read']['p99'])
 
@@ -175,8 +173,8 @@ def plot_latency_per_qps(data_dir, qps_list):
 def main(argv):
     stats_root_dir = argv[1]
     stats = parse_multiple_instances_stats(stats_root_dir)
-    plot_residency_per_qps(stats, [10000, 50000, 100000, 200000, 300000, 400000, 500000, 1000000, 2000000])
-    #plot_latency_per_qps(data_dir, [10000, 50000, 100000, 200000, 300000, 400000, 500000, 1000000, 2000000])
+    #plot_residency_per_qps(stats, [10000, 50000, 100000, 200000, 300000, 400000, 500000, 1000000, 2000000])
+    plot_latency_per_qps(stats, [10000, 50000, 100000, 200000, 300000, 400000, 500000, 1000000, 2000000])
 
 if __name__ == '__main__':
     main(sys.argv)
