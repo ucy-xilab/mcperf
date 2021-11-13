@@ -1,5 +1,6 @@
 import ast 
 import os
+import re
 import sys
 import matplotlib.pyplot as plt
 
@@ -8,6 +9,24 @@ def derive_datatype(datastr):
         return type(ast.literal_eval(datastr))
     except:
         return type("")
+
+def parse_mcperf_stats(mcperf_results_path):
+    stats = None
+    with open(mcperf_results_path, 'r') as f:
+        stats = {}
+        for l in f:
+            if l.startswith('#type'):
+                stat_names = l.split()[1:]
+                read_stats = next(f).split()[1:]
+                update_stats = next(f).split()[1:]
+                read_stats_dict = {}
+                update_stats_dict = {}
+                for i, stat_name in enumerate(stat_names):
+                    read_stats_dict[stat_name] = float(read_stats[i])
+                    update_stats_dict[stat_name] = float(update_stats[i])
+                stats['read'] = read_stats_dict
+                stats['update'] = update_stats_dict
+    return stats
 
 def read_timeseries(filepath):
     header = None
@@ -25,31 +44,62 @@ def read_timeseries(filepath):
             timeseries.append((timestamp, value))
     return (header, timeseries)            
 
-def read_data(data_dir):
-    data = {}
-    for fname in os.listdir(data_dir):
-        filepath = os.path.join(data_dir, fname)
-        (header, timeseries) = read_timeseries(filepath)
-        data[header] = timeseries
-    return data
+def add_metric_to_dict(stats_dict, metric_name, metric_value):
+    head = metric_name.split('.')[0]
+    tail = metric_name.split('.')[1:]
+    if tail:
+        stats_dict = stats_dict.setdefault(head, {})
+        add_metric_to_dict(stats_dict, '.'.join(tail)   , metric_value)
+    else:
+        stats_dict[head] = metric_value
+
+def parse_cstate_stats(stats_dir):
+    stats = {}
+    prog = re.compile('(.*)\.(.*)\.(.*)')
+    for f in os.listdir(stats_dir):
+        m = prog.match(f)
+        if m:
+            stats_file = os.path.join(stats_dir, f)
+            cpu_id = m.group(0)
+            state_name = m.group(1)
+            metric_name = m.group(2)
+            (metric_name, timeseries) = read_timeseries(stats_file)
+            add_metric_to_dict(stats, metric_name, timeseries)
+    return stats
+
+def parse_single_instance_stats(stats_dir):
+    stats = {}
+    server_stats_dir = os.path.join(stats_dir, 'memcached')
+    server_cstate_stats = parse_cstate_stats(server_stats_dir)
+    stats['server'] = server_cstate_stats
+    mcperf_stats_file = os.path.join(stats_dir, 'mcperf')
+    stats['mcperf'] = parse_mcperf_stats(mcperf_stats_file)
+    return stats
+
+def parse_multiple_instances_stats(stats_dir, pattern='.*'):
+    stats = {}
+    for f in os.listdir(stats_dir):
+        instance_dir = os.path.join(stats_dir, f)
+        stats[f] = parse_single_instance_stats(instance_dir)
+    return stats
 
 def cpu_state_time_perc(data, cpu_id):
+    cpu_str = "CPU{}".format(cpu_id)
     state_names = ['POLL', 'C1', 'C1E', 'C6']
     state_time_perc = []
     total_state_time = 0
     time_us = 0
     for state_name in state_names:
-        metric_name = "CPU{}.{}.time".format(cpu_id, state_name)
-        (ts_start, val_start) = data[metric_name][0]
-        (ts_end, val_end) = data[metric_name][-1]
+        print(data)
+        (ts_start, val_start) = data[cpu_str][state_name]['time'][0]
+        (ts_end, val_end) = data[cpu_str][state_name]['time'][-1]
         time_us = max(time_us, (ts_end - ts_start) * 1000000.0)
         total_state_time += val_end - val_start
 
     time_us = max(time_us, total_state_time)
     for state_name in state_names:
-        metric_name = "CPU{}.{}.time".format(cpu_id, state_name)
-        (ts_start, val_start) = data[metric_name][0]
-        (ts_end, val_end) = data[metric_name][-1]
+        (ts_start, val_start) = data[cpu_str][state_name]['time'][0]
+        (ts_end, val_end) = data[cpu_str][state_name]['time'][-1]
         state_time_perc.append((val_end-val_start)/time_us)
     # calculate C0 
     state_time_perc[0] = 1 - sum(state_time_perc[1:4])
@@ -57,24 +107,22 @@ def cpu_state_time_perc(data, cpu_id):
     return state_time_perc
 
 
-def avg_state_time_perc(data_dir, cpu_id_list):
-    data = read_data(data_dir)
+def avg_state_time_perc(stats, cpu_id_list):
     total_state_time_perc = [0]*4
     cpu_count = 0
     for cpud_id in cpu_id_list:
         cpu_count += 1
-        total_state_time_perc = [a + b for a, b in zip(total_state_time_perc, cpu_state_time_perc(data, cpud_id))]
+        total_state_time_perc = [a + b for a, b in zip(total_state_time_perc, cpu_state_time_perc(stats, cpud_id))]
     avg_state_time_perc = [a/b for a, b in zip(total_state_time_perc, [cpu_count]*len(total_state_time_perc))]
     return avg_state_time_perc
 
-def plot_residency_per_qps(data_dir, qps_list):
+def plot_residency_per_qps(stats, qps_list):
     bars = []
     labels = []
     state_names = ['C0', 'C1', 'C1E', 'C6']
     for qps in qps_list:
         instance_name = '-'.join(['qps' + str(qps), '0'])
-        memcached_results_dir = os.path.join(data_dir, instance_name, 'memcached')
-        time_perc = avg_state_time_perc(memcached_results_dir, range(0, 10))
+        time_perc = avg_state_time_perc(stats[instance_name]['server'], range(0, 10))
     
         labels.append(str(int(qps/1000))+'K')
         bar = []
@@ -96,15 +144,39 @@ def plot_residency_per_qps(data_dir, qps_list):
         for i, val in enumerate(vals):
             bottom[i] += val    
 
-    ax.set_ylabel('C-State Residency')
-    ax.set_xlabel('Request Rate')
+    ax.set_ylabel('C-State Residency (fraction)')
+    ax.set_xlabel('Request Rate (QPS)')
     ax.legend()
 
     plt.show()
 
+def plot_latency_per_qps(data_dir, qps_list):
+    read_avg = []
+    read_p99 = []
+    axis_scale = 0.001
+    for qps in qps_list:
+        instance_name = '-'.join(['qps' + str(qps), '0'])
+        mcperf_results_path = os.path.join(data_dir, instance_name, 'mcperf')
+        mcperf_stats = parse_mcperf_stats(mcperf_results_path)
+        read_avg.append(mcperf_stats['read']['avg'])
+        read_p99.append(mcperf_stats['read']['p99'])
+
+    fig, ax = plt.subplots()
+    qps_list = [q *axis_scale for q in qps_list]
+    plt.plot(qps_list, read_avg, label='read avg')
+    plt.plot(qps_list, read_p99, label='read p99')
+    ax.set_ylabel('Latency (us)')
+    ax.set_xlabel('Request Rate (KQPS)')
+    ax.legend()
+
+    plt.show()
+
+
 def main(argv):
-    data_dir = argv[1]
-    plot_residency_per_qps(data_dir, [10000, 50000, 100000, 200000, 300000, 400000, 500000, 1000000, 2000000])
+    stats_root_dir = argv[1]
+    stats = parse_multiple_instances_stats(stats_root_dir)
+    plot_residency_per_qps(stats, [10000, 50000, 100000, 200000, 300000, 400000, 500000, 1000000, 2000000])
+    #plot_latency_per_qps(data_dir, [10000, 50000, 100000, 200000, 300000, 400000, 500000, 1000000, 2000000])
 
 if __name__ == '__main__':
     main(sys.argv)
