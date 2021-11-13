@@ -3,6 +3,7 @@
 export ANSIBLE_HOST_KEY_CHECKING=False
 
 MEMCACHED_WORKER_THREADS=10
+MEMCACHED_MEMORY_LIMIT_MB=16384
 MEMCACHED_PIN_WORKER_THREADS=true
 
 build_memcached () {
@@ -50,34 +51,27 @@ kill_profiler () {
 }
 
 run_remote () {
-  vars="WORKER_THREADS=${MEMCACHED_WORKER_THREADS} PIN_THREADS=${MEMCACHED_PIN_WORKER_THREADS}"
+  vars="WORKER_THREADS=${MEMCACHED_WORKER_THREADS} MEMORY_LIMIT_MB=${MEMCACHED_MEMORY_LIMIT_MB} PIN_THREADS=${MEMCACHED_PIN_WORKER_THREADS}"
   ansible-playbook -v -i hosts ansible/mcperf.yml -e "$vars" --tags "run_server,run_agents"
 }
 
 kill_remote () {
-  vars="WORKER_THREADS=${MEMCACHED_WORKER_THREADS} PIN_THREADS=${MEMCACHED_PIN_WORKER_THREADS}"
+  vars="WORKER_THREADS=${MEMCACHED_WORKER_THREADS} MEMORY_LIMIT_MB=${MEMCACHED_MEMORY_LIMIT_MB} PIN_THREADS=${MEMCACHED_PIN_WORKER_THREADS}"
   ansible-playbook -v -i hosts ansible/mcperf.yml -e "$vars" --tags "kill_server,kill_agents"
 }
 
 run_server () {
-  vars="WORKER_THREADS=${MEMCACHED_WORKER_THREADS} PIN_THREADS=${MEMCACHED_PIN_WORKER_THREADS}"
+  vars="WORKER_THREADS=${MEMCACHED_WORKER_THREADS} MEMORY_LIMIT_MB=${MEMCACHED_MEMORY_LIMIT_MB} PIN_THREADS=${MEMCACHED_PIN_WORKER_THREADS}"
   ansible-playbook -v -i hosts ansible/mcperf.yml -e "$vars" --tags "run_server"
 }
 
 kill_server () {
-  vars="WORKER_THREADS=${MEMCACHED_WORKER_THREADS} PIN_THREADS=${MEMCACHED_PIN_WORKER_THREADS}"
+  vars="WORKER_THREADS=${MEMCACHED_WORKER_THREADS} MEMORY_LIMIT_MB=${MEMCACHED_MEMORY_LIMIT_MB} PIN_THREADS=${MEMCACHED_PIN_WORKER_THREADS}"
   ansible-playbook -v -i hosts ansible/mcperf.yml -e "$vars" --tags "kill_server"
 }
 
-status_remote () {
+check_status () {
   ansible-playbook -v -i hosts ansible/mcperf.yml --tags "status"
 }
-
-run_experiment () {
-  python3 profiler.py -n node1 start
-  ./memcache-perf/mcperf -s node1 --noload -B -T 16 -Q 1000 -D 4 -C 4 -a node2 -c 4 -q 2000000
-  python3 profiler.py -n node1 stop
-}
-
 
 "$@"

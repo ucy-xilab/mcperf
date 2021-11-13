@@ -14,7 +14,7 @@
   - run_server
   tasks:
   - name: Run memcached server
-    command: ~/mcperf/memcached/memcached -t {{ WORKER_THREADS }} -c 32768
+    command: ~/mcperf/memcached/memcached -t {{ WORKER_THREADS }} -m {{ MEMORY_LIMIT_MB }} -c 32768
     async: 10000 
     poll: 0
   - name: Pin memcached worker threads 
