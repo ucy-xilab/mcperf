@@ -90,7 +90,6 @@ def cpu_state_time_perc(data, cpu_id):
     total_state_time = 0
     time_us = 0
     for state_name in state_names:
-        print(data)
         (ts_start, val_start) = data[cpu_str][state_name]['time'][0]
         (ts_end, val_end) = data[cpu_str][state_name]['time'][-1]
         time_us = max(time_us, (ts_end - ts_start) * 1000000.0)
@@ -173,8 +172,8 @@ def plot_latency_per_qps(stats, qps_list):
 def main(argv):
     stats_root_dir = argv[1]
     stats = parse_multiple_instances_stats(stats_root_dir)
-    #plot_residency_per_qps(stats, [10000, 50000, 100000, 200000, 300000, 400000, 500000, 1000000, 2000000])
-    plot_latency_per_qps(stats, [10000, 50000, 100000, 200000, 300000, 400000, 500000, 1000000, 2000000])
+    plot_residency_per_qps(stats, [10000, 50000, 100000, 200000, 300000, 400000, 500000, 1000000, 2000000])
+    #plot_latency_per_qps(stats, [10000, 50000, 100000, 200000, 300000, 400000, 500000, 1000000, 2000000])
 
 if __name__ == '__main__':
     main(sys.argv)
