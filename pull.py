@@ -90,9 +90,13 @@ def exec_chain(command_chain, username, hostname):
     for command in command_chain:
         command.exec(hostname, client)
 
+def main(argv):
+  logging.getLogger('').setLevel(logging.INFO)
+  hostname = argv[0]
+  create_tar_cmd = ShellCommand('tar -cf data.tgz data')
+  scp_tar_cmd = FileGetCommand('/users/hvolos01/data.tgz', '/tmp/data.tgz')
+  exec_chain([create_tar_cmd, scp_tar_cmd], 'hvolos01', hostname)
+  os.system('tar -xf /tmp/data.tgz')
 
-logging.getLogger('').setLevel(logging.INFO)
-create_tar_cmd = ShellCommand('tar -cf data.tgz data')
-scp_tar_cmd = FileGetCommand('/users/hvolos01/data.tgz', '/tmp/data.tgz')
-exec_chain([create_tar_cmd, scp_tar_cmd], 'hvolos01', 'node0.hvolos01-110613.ramp-pg0.wisc.cloudlab.us')
-os.system('tar -xf /tmp/data.tgz')
+if __name__ == "__main__":
+  main(sys.argv[1:])
