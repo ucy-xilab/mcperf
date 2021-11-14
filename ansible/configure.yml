@@ -1,41 +1,53 @@
 ---
-- name: Install package dependencies
-  hosts: all
-  tags: 
-  - dependencies
+- name: Configure machine
+  hosts: memcached
   tasks:
-  - name: Install libraries
+  - name: Enable turbo boost
+    ignore_errors: yes
     become: yes
-    apt:
-      update_cache: yes
-      pkg:
-      - libevent-dev 
-      - libzmq3-dev
-  - name: Install tools
+    shell: echo 0 > /sys/devices/system/cpu/intel_pstate/no_turbo
+    when: TURBO is defined and TURBO|bool==true
+  - name: Disable turbo boost
+    ignore_errors: yes
     become: yes
-    apt:
-      update_cache: yes
-      pkg:
-      - sysstat
-      - linux-tools-common
-      - linux-tools-generic
-      # - linux-tools-5.4.0-88-generic
-      - linux-tools-4.15.0-159-generic
-- name: Install mcperf
-  hosts: 
-  - memcached
-  - agents
-  tags: 
-  - mcperf
-  tasks:
-  - name: Check mcperf exists
-    stat:
-      path: ~/mcperf
-    register: mcperf_folder    
-  - name: Install mcperf if not exists
-    unarchive: 
-      src: ~/mcperf.tgz 
-      dest: ~/
-    when: mcperf_folder.stat.exists == false
+    shell: echo 1 > /sys/devices/system/cpu/intel_pstate/no_turbo
+    when: TURBO is defined and TURBO|bool==false
+  # - name: check if 'intel_idle.max_cstate=0 idle=poll' is configured in the boot command
+  #   lineinfile:
+  #     backup: true
+  #     path: /etc/default/grub
+  #     regexp: '^GRUB_CMDLINE_LINUX=".*intel_idle\.max_cstate=0 idle=poll\"$'
+  #     state: absent
+  #   check_mode: true
+  #   register: grub_cmdline_check
+  #   changed_when: false
+  # - name: insert 'intel_idle.max_cstate=0 idle=poll' if missing
+  #   become: yes
+  #   lineinfile:
+  #     backrefs: true
+  #     path: /etc/default/grub
+  #     regexp: "^(GRUB_CMDLINE_LINUX=\".*)\"$"
+  #     line: '\1 intel_idle.max_cstate=0 idle=poll"'
+  #   when: grub_cmdline_check.found == 0
+  #   notify: 
+  #   - update grub
+  #   - reboot_machine
+  # - name: insert 'intel_idle.max_cstate=0 idle=poll' if exists
+  #   become: yes
+  #   lineinfile:
+  #     backrefs: true
+  #     path: /etc/default/grub
+  #     regexp: "^(GRUB_CMDLINE_LINUX=\".*) intel_idle.max_cstate=0 idle=poll\"$"
+  #     line: '\1"'
+  #   when: grub_cmdline_check.found == 1
+  #   notify: 
+  #   - update grub
+  #   - reboot_machine
 
-
+  # handlers:
+  # - name: update grub
+  #   become: yes
+  #   shell: update-grub2
+  # - name: reboot_machine
+  #   become: yes
+  #   reboot:

@@ -178,6 +178,8 @@ class ProfilingService:
             timeseries = {**timeseries, **t}
         return timeseries
 
+    def set(self, kv):
+        print(kv)
 
 def server(port):
     perf_event_profiling = PerfEventProfiling()
@@ -242,6 +244,20 @@ class ReportAction:
                 for val in timeseries:
                     mf.write(','.join(val) + '\n')
 
+class SetAction:
+    @staticmethod
+    def add_parser(subparsers):
+        parser = subparsers.add_parser('set', help = "Set sysfs")
+        parser.set_defaults(func=SetAction.action)
+        parser.add_argument('-c', dest='command')
+        parser.add_argument('rest', nargs=argparse.REMAINDER)
+
+    @staticmethod
+    def action(args):
+        print(args)
+        with xmlrpc.client.ServerProxy("http://{}:{}/".format(args.hostname, args.port)) as proxy:
+            proxy.set(args.rest)
+
 def parse_args():
     """Configures and parses command-line arguments"""
     parser = argparse.ArgumentParser(
@@ -260,7 +276,7 @@ def parse_args():
         help="verbose")
 
     subparsers = parser.add_subparsers(dest='subparser_name', help='sub-command help')
-    actions = [StartAction, StopAction, ReportAction]
+    actions = [StartAction, StopAction, ReportAction, SetAction]
     for a in actions:
       a.add_parser(subparsers)
 
