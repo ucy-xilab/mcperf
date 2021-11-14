@@ -36,18 +36,25 @@ install_ansible_python () {
   pip3 install ansible
 }
 
-build_and_deploy () {
+install_dep () {
   sudo apt update
-  sudo apt install ansible -y
-  sudo apt install python3-pip -y
+  sudo apt install ansible python3-pip -y
   pip3 install ansible-runner
-  ansible-playbook -v -i hosts ansible/configure.yml --tags "dependencies"
+  ansible-playbook -i hosts ansible/install_dep.yml
+}
+
+build () {
   build_memcached
   build_mcperf
   pushd ~
   tar -czf mcperf.tgz mcperf
   popd
-  ansible-playbook -v -i hosts ansible/configure.yml --tags "mcperf"
+ }	
+
+build_install () {
+  install_dep
+  build
+  ansible-playbook -v -i hosts ansible/install.yml
 }
 
 run_profiler () {

@@ -4,7 +4,7 @@ import logging
 import subprocess
 import sys
 import os
-from ansible.playbook import PlayBook
+import ansible_runner
 
 log = logging.getLogger(__name__)
 

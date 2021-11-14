@@ -1,0 +1,21 @@
+---
+- name: Install package dependencies
+  hosts: all
+  tasks:
+  - name: Install libraries
+    become: yes
+    apt:
+      update_cache: yes
+      pkg:
+      - libevent-dev 
+      - libzmq3-dev
+  - name: Install tools
+    become: yes
+    apt:
+      update_cache: yes
+      pkg:
+      - sysstat
+      - linux-tools-common
+      - linux-tools-generic
+      - linux-tools-5.4.0-88-generic
+    when: ansible_distribution == 'Ubuntu' and ansible_distribution_version == '20.04' 

@@ -1,0 +1,17 @@
+---
+- name: Install mcperf
+  hosts: 
+  - memcached
+  - agents
+  tasks:
+  - name: Check mcperf exists
+    stat:
+      path: ~/mcperf
+    register: mcperf_folder    
+  - name: Install mcperf if not exists
+    unarchive: 
+      src: ~/mcperf.tgz 
+      dest: ~/
+    when: mcperf_folder.stat.exists == false
+
+
