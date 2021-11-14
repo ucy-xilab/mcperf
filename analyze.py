@@ -67,11 +67,24 @@ def parse_cstate_stats(stats_dir):
             add_metric_to_dict(stats, metric_name, timeseries)
     return stats
 
+def parse_perf_stats(stats_dir):
+    stats = {}
+    prog = re.compile('(.*)\.(.*)\.(.*)')
+    for f in os.listdir(stats_dir):
+        m = prog.match(f)
+        if not m:
+            stats_file = os.path.join(stats_dir, f)
+            (metric_name, timeseries) = read_timeseries(stats_file)
+            add_metric_to_dict(stats, metric_name, timeseries)
+    return stats
+
 def parse_single_instance_stats(stats_dir):
     stats = {}
     server_stats_dir = os.path.join(stats_dir, 'memcached')
     server_cstate_stats = parse_cstate_stats(server_stats_dir)
-    stats['server'] = server_cstate_stats
+    server_perf_stats = parse_perf_stats(server_stats_dir)
+    #stats['server'] = {**server_cstate_stats, **server_perf_stats}
+    stats['server'] = server_perf_stats
     mcperf_stats_file = os.path.join(stats_dir, 'mcperf')
     stats['mcperf'] = parse_mcperf_stats(mcperf_stats_file)
     return stats
@@ -114,10 +127,12 @@ def avg_state_time_perc(stats, cpu_id_list):
     avg_state_time_perc = [a/b for a, b in zip(total_state_time_perc, [cpu_count]*len(total_state_time_perc))]
     return avg_state_time_perc
 
-def shortname(qps, turbo):
+def shortname(qps=None, turbo=None):
     l = []
-    l.append('qps={}'.format(qps))
-    l.append('turbo={}'.format(turbo))
+    if qps:
+        l.append('qps={}'.format(qps))
+    if turbo:
+        l.append('turbo={}'.format(turbo))
     l.append('0')
     return '-'.join(l)
 
@@ -178,18 +193,23 @@ def plot_latency_per_qps(stats, qps_list, turbo_list):
 
     plt.show()
 
+# FIXME: What to do with energy of missing timestamps?
+def avg_power(timeseries):
+    total_val = 0
+    for (ts, val) in timeseries:
+        total_val += val
+    time = timeseries[-1][0] - timeseries[0][0]
+    return total_val / time
+
 def plot_power_per_qps(stats, qps_list, turbo_list):
     axis_scale = 0.001
     for turbo in turbo_list:
         power = []
         extra_params = 'turbo={}'.format(turbo)
         for qps in qps_list:
-            instance_name = shortname(qps, turbo)
+            instance_name = shortname(qps, turbo=None)
             system_stats = stats[instance_name]['server']
-            for k in system_stats.keys():
-                print(k)
-            print(system_stats['power/energy-pkg/'])
-            read_avg.append(mcperf_stats['read']['avg'])
+            power.append(avg_power(system_stats['power/energy-pkg/']))
 
         fig, ax = plt.subplots()
         qps_list = [q *axis_scale for q in qps_list]
