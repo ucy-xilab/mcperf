@@ -121,7 +121,7 @@ def main(argv):
         'memcached_worker_threads': 10,
         'memcached_memory_limit_mb': 16384,
         'memcached_pin_threads': 'true',
-        'mcperf_time': 120,
+        'mcperf_time': 10,
         'mcperf_warmup_qps': 1000000,
         'mcperf_warmup_time': 1,
         'mcperf_records': 1000000,
