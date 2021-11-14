@@ -114,12 +114,19 @@ def avg_state_time_perc(stats, cpu_id_list):
     avg_state_time_perc = [a/b for a, b in zip(total_state_time_perc, [cpu_count]*len(total_state_time_perc))]
     return avg_state_time_perc
 
-def plot_residency_per_qps(stats, qps_list):
+def shortname(qps, turbo):
+    l = []
+    l.append('qps={}'.format(qps))
+    l.append('turbo={}'.format(turbo))
+    l.append('0')
+    return '-'.join(l)
+
+def plot_residency_per_qps(stats, qps_list, turbo):
     bars = []
     labels = []
     state_names = ['C0', 'C1', 'C1E', 'C6']
     for qps in qps_list:
-        instance_name = '-'.join(['qps=' + str(qps), '0'])
+        instance_name = shortname(qps, turbo)
         time_perc = avg_state_time_perc(stats[instance_name]['server'], range(0, 10))
     
         labels.append(str(int(qps/1000))+'K')
@@ -148,32 +155,60 @@ def plot_residency_per_qps(stats, qps_list):
 
     plt.show()
 
-def plot_latency_per_qps(stats, qps_list):
-    read_avg = []
-    read_p99 = []
+def plot_latency_per_qps(stats, qps_list, turbo_list):
     axis_scale = 0.001
-    for qps in qps_list:
-        instance_name = '-'.join(['qps=' + str(qps), '0'])
-        mcperf_stats = stats[instance_name]['mcperf']
-        read_avg.append(mcperf_stats['read']['avg'])
-        read_p99.append(mcperf_stats['read']['p99'])
+    for turbo in turbo_list:
+        read_avg = []
+        read_p99 = []
+        extra_params = 'turbo={}'.format(turbo)
+        for qps in qps_list:
+            instance_name = shortname(qps, turbo)
+            mcperf_stats = stats[instance_name]['mcperf']
+            read_avg.append(mcperf_stats['read']['avg'])
+            read_p99.append(mcperf_stats['read']['p99'])
 
-    fig, ax = plt.subplots()
-    qps_list = [q *axis_scale for q in qps_list]
-    plt.plot(qps_list, read_avg, label='read avg')
-    plt.plot(qps_list, read_p99, label='read p99')
+        fig, ax = plt.subplots()
+        qps_list = [q *axis_scale for q in qps_list]
+        plt.plot(qps_list, read_avg, label='read avg - {}'.format(extra_params))
+        plt.plot(qps_list, read_p99, label='read p99 - {}'.format(extra_params))
+
     ax.set_ylabel('Latency (us)')
     ax.set_xlabel('Request Rate (KQPS)')
     ax.legend()
 
     plt.show()
 
+def plot_power_per_qps(stats, qps_list, turbo_list):
+    axis_scale = 0.001
+    for turbo in turbo_list:
+        power = []
+        extra_params = 'turbo={}'.format(turbo)
+        for qps in qps_list:
+            instance_name = shortname(qps, turbo)
+            system_stats = stats[instance_name]['server']
+            for k in system_stats.keys():
+                print(k)
+            print(system_stats['power/energy-pkg/'])
+            read_avg.append(mcperf_stats['read']['avg'])
+
+        fig, ax = plt.subplots()
+        qps_list = [q *axis_scale for q in qps_list]
+        plt.plot(qps_list, power, label=extra_params)
+
+    ax.set_ylabel('Power (W)')
+    ax.set_xlabel('Request Rate (KQPS)')
+    ax.legend()
+
+    plt.show()
 
 def main(argv):
     stats_root_dir = argv[1]
     stats = parse_multiple_instances_stats(stats_root_dir)
-    plot_residency_per_qps(stats, [10000, 50000, 100000, 200000, 300000, 400000, 500000, 1000000, 2000000])
-    #plot_latency_per_qps(stats, [10000, 50000, 100000, 200000, 300000, 400000, 500000, 1000000, 2000000])
+    qps_list = [10000, 50000, 100000, 200000, 300000, 400000, 500000, 1000000, 2000000]
+    turbo_list = [True]
+    #plot_residency_per_qps(stats, qps_list, turbo_list[0])
+    #plot_latency_per_qps(stats, qps_list, turbo_list)
+    plot_power_per_qps(stats, qps_list, turbo_list)
 
 if __name__ == '__main__':
     main(sys.argv)
