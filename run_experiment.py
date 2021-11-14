@@ -4,6 +4,7 @@ import logging
 import subprocess
 import sys
 import os
+from ansible.playbook import PlayBook
 
 log = logging.getLogger(__name__)
 
@@ -49,7 +50,7 @@ def main(argv):
     if len(argv) < 1:
         raise Exception("Experiment name is missing")
     name = argv[0]
-    run_multiple_experiments('/users/hvolos01/data', name)
+    #run_multiple_experiments('/users/hvolos01/data', name)
 
 if __name__ == '__main__':
     main(sys.argv[1:])

@@ -30,9 +30,17 @@ build_mcperf () {
   popd
 }
 
+install_ansible_python () {
+  export LANG=C.UTF-8
+  export LC_ALL=C.UTF-8
+  pip3 install ansible
+}
+
 build_and_deploy () {
   sudo apt update
   sudo apt install ansible -y
+  sudo apt install python3-pip -y
+  pip3 install ansible-runner
   ansible-playbook -v -i hosts ansible/configure.yml --tags "dependencies"
   build_memcached
   build_mcperf
