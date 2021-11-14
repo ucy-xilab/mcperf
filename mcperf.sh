@@ -37,9 +37,10 @@ install_ansible_python () {
 }
 
 install_dep () {
+  #sudo apt update
+  sudo apt-add-repository ppa:ansible/ansible -y
   sudo apt update
-  sudo apt install ansible python3-pip -y
-  pip3 install ansible-runner
+  sudo apt install ansible -y
   ansible-playbook -i hosts ansible/install_dep.yml
 }
 
@@ -67,22 +68,22 @@ kill_profiler () {
 
 run_remote () {
   vars="WORKER_THREADS=${MEMCACHED_WORKER_THREADS} MEMORY_LIMIT_MB=${MEMCACHED_MEMORY_LIMIT_MB} PIN_THREADS=${MEMCACHED_PIN_WORKER_THREADS}"
-  ansible-playbook -v -i hosts ansible/mcperf.yml -e "$vars" --tags "run_server,run_agents"
+  ansible-playbook -v -i hosts ansible/mcperf.yml -e "$vars" --tags "run_memcached,run_agents"
 }
 
 kill_remote () {
   vars="WORKER_THREADS=${MEMCACHED_WORKER_THREADS} MEMORY_LIMIT_MB=${MEMCACHED_MEMORY_LIMIT_MB} PIN_THREADS=${MEMCACHED_PIN_WORKER_THREADS}"
-  ansible-playbook -v -i hosts ansible/mcperf.yml -e "$vars" --tags "kill_server,kill_agents"
+  ansible-playbook -v -i hosts ansible/mcperf.yml -e "$vars" --tags "kill_memcached,kill_agents"
 }
 
 run_server () {
   vars="WORKER_THREADS=${MEMCACHED_WORKER_THREADS} MEMORY_LIMIT_MB=${MEMCACHED_MEMORY_LIMIT_MB} PIN_THREADS=${MEMCACHED_PIN_WORKER_THREADS}"
-  ansible-playbook -v -i hosts ansible/mcperf.yml -e "$vars" --tags "run_server"
+  ansible-playbook -v -i hosts ansible/mcperf.yml -e "$vars" --tags "run_memcached"
 }
 
 kill_server () {
   vars="WORKER_THREADS=${MEMCACHED_WORKER_THREADS} MEMORY_LIMIT_MB=${MEMCACHED_MEMORY_LIMIT_MB} PIN_THREADS=${MEMCACHED_PIN_WORKER_THREADS}"
-  ansible-playbook -v -i hosts ansible/mcperf.yml -e "$vars" --tags "kill_server"
+  ansible-playbook -v -i hosts ansible/mcperf.yml -e "$vars" --tags "kill_memcached"
 }
 
 check_status () {

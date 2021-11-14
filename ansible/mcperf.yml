@@ -2,7 +2,7 @@
 - name: Kill memcached server
   hosts: memcached
   tags: 
-  - kill_server
+  - kill_memcached
   tasks:
   - name: Kill memcached server       
     ignore_errors: yes
@@ -11,7 +11,7 @@
 - name: Run memcached server
   hosts: memcached
   tags: 
-  - run_server
+  - run_memcached
   tasks:
   - name: Run memcached server
     command: ~/mcperf/memcached/memcached -t {{ WORKER_THREADS }} -m {{ MEMORY_LIMIT_MB }} -c 32768
