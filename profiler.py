@@ -22,43 +22,50 @@ import re
 #     return diff
  
 class EventProfiling:
-    def __init__(self, sampling_period = None):
+    def __init__(self, sampling_period = None, sampling_length = None):
+        assert sampling_period >= sampling_length, "Sampling length cannot be longer than sampling period"
         self.terminate_thread = threading.Condition()
         self.is_active = False
         self.sampling_period = sampling_period
+        self.sampling_length = sampling_length
 
     def profile_thread(self):
+        self.terminate_thread.acquire()
         while self.is_active:
             timestamp = str(int(time.time()))
-            self.sample(timestamp)
-
-            self.terminate_thread.acquire()
-            self.terminate_thread.wait(timeout=1)
             self.terminate_thread.release()
+            self.sample(timestamp)
+            self.terminate_thread.acquire()
+            if self.is_active
+                self.terminate_thread.wait(timeout=self.sampling_period - self.sampling_length)
+        self.terminate_thread.release()
 
     def start(self):
         self.clear()
-        timestamp = str(int(time.time()))
-        self.sample(timestamp)
         if self.sampling_period:
             self.is_active=True
             self.thread = threading.Thread(target=EventProfiling.profile_thread, args=(self,))
             self.thread.daemon = True
             self.thread.start()
+        else:
+            timestamp = str(int(time.time()))
+            self.sample(timestamp)
 
     def stop(self):
         if self.sampling_period:
-            self.is_active=False
             self.terminate_thread.acquire()
+            self.interrupt_sample()
+            self.is_active=False
             self.terminate_thread.notify()
             self.terminate_thread.release()
-        timestamp = str(int(time.time()))
-        self.sample(timestamp)
+        else:
+            timestamp = str(int(time.time()))
+            self.sample(timestamp)
 
 
 class PerfEventProfiling(EventProfiling):
-    def __init__(self, sampling_period=1):
-        super().__init__(sampling_period)
+    def __init__(self, sampling_period=1, sampling_length=1):
+        super().__init__(sampling_period, sampling_length)
         self.events = self.get_perf_power_events()
         self.timeseries = {}
         for e in self.events:
@@ -76,7 +83,7 @@ class PerfEventProfiling(EventProfiling):
 
     def sample(self, timestamp):
         events_str = ','.join(self.events)
-        cmd = ['sudo', 'perf', 'stat', '-a', '-e', events_str, 'sleep', '1']
+        cmd = ['sudo', 'perf', 'stat', '-a', '-e', events_str, 'sleep', str(self.sampling_length)]
         result = subprocess.run(cmd, stdout=subprocess.PIPE,stderr=subprocess.PIPE)
         out = result.stdout.decode('utf-8').splitlines() + result.stderr.decode('utf-8').splitlines()
         for e in self.events:
@@ -86,6 +93,9 @@ class PerfEventProfiling(EventProfiling):
                 if m:
                     value = m.group(1)
                     self.timeseries[e].append((timestamp, str(float(value))))
+
+    def interrupt_sample(self):
+        pass
 
     def clear(self):
         self.timeseries = {}
@@ -111,6 +121,9 @@ class MpstatProfiling(EventProfiling):
                 util_val = str(100.00-idle_val)
                 self.timeseries['cpu_util'].append((timestamp, util_val))
                 return 
+
+    def interrupt_sample(self):
+        pass
 
     def clear(self):
         self.timeseries = {}
@@ -152,6 +165,9 @@ class StateProfiling(EventProfiling):
     def sample(self, timestamp):
         self.sample_power_state_metric('usage', timestamp)
         self.sample_power_state_metric('time', timestamp)
+
+    def interrupt_sample(self):
+        pass
 
     def clear(self):
         self.timeseries = {}
