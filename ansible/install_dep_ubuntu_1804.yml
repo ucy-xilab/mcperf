@@ -12,6 +12,7 @@
     update_cache: yes
     pkg:
     - sysstat
+    - msr-tools
     - linux-tools-common
     - linux-tools-generic
     - linux-tools-4.15.0-159-generic
