@@ -93,10 +93,10 @@ class PerfEventProfiling(EventProfiling):
                 m = re.match("(.*)\s+.*\s+{}".format(e), l)
                 if m:
                     value = m.group(1)
-                    self.timeseries[e].append((timestamp, str(float(value))))
+                    self.timeseries[e].append((timestamp, str(float(value.replace(',', '')))))
 
     def interrupt_sample(self):
-        pass
+        os.system('sudo pkill -2 sleep')
 
     def clear(self):
         self.timeseries = {}
@@ -134,7 +134,7 @@ class MpstatProfiling(EventProfiling):
         return self.timeseries
 
 class StateProfiling(EventProfiling):
-    def __init__(self, sampling_period=None):
+    def __init__(self, sampling_period=0):
         super().__init__(sampling_period)
         self.state_names = StateProfiling.power_state_names()
         self.timeseries = {}
@@ -199,9 +199,9 @@ class ProfilingService:
         print(kv)
 
 def server(port):
-    perf_event_profiling = PerfEventProfiling(sampling_period=)
+    perf_event_profiling = PerfEventProfiling(sampling_period=30,sampling_length=30)
     mpstat_profiling = MpstatProfiling()
-    state_profiling = StateProfiling(sampling_period=1)
+    state_profiling = StateProfiling(sampling_period=0)
     profiling_service = ProfilingService([perf_event_profiling, mpstat_profiling, state_profiling])
     hostname = socket.gethostname().split('.')[0]
     server = SimpleXMLRPCServer((hostname, port), allow_none=True)
