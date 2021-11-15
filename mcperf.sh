@@ -44,6 +44,10 @@ install_dep () {
   ansible-playbook -i hosts ansible/install_dep.yml
 }
 
+install_mcperf () {
+  ansible-playbook -i hosts ansible/install.yml
+}
+
 build () {
   build_memcached
   build_mcperf

@@ -22,23 +22,24 @@ import re
 #     return diff
  
 class EventProfiling:
-    def __init__(self, sampling_period = None, sampling_length = None):
-        assert sampling_period >= sampling_length, "Sampling length cannot be longer than sampling period"
+    def __init__(self, sampling_period = 0, sampling_length = 1):
         self.terminate_thread = threading.Condition()
         self.is_active = False
         self.sampling_period = sampling_period
         self.sampling_length = sampling_length
 
     def profile_thread(self):
+        logging.info("Profiling thread started")
         self.terminate_thread.acquire()
         while self.is_active:
             timestamp = str(int(time.time()))
             self.terminate_thread.release()
             self.sample(timestamp)
             self.terminate_thread.acquire()
-            if self.is_active
+            if self.is_active:
                 self.terminate_thread.wait(timeout=self.sampling_period - self.sampling_length)
         self.terminate_thread.release()
+        logging.info("Profiling thread terminated")
 
     def start(self):
         self.clear()
@@ -106,8 +107,8 @@ class PerfEventProfiling(EventProfiling):
         return self.timeseries
 
 class MpstatProfiling(EventProfiling):
-    def __init__(self, sampling_period=1):
-        super().__init__(sampling_period)
+    def __init__(self, sampling_period=1, sampling_length=1):
+        super().__init__(sampling_period, sampling_length)
         self.timeseries = {}
         self.timeseries['cpu_util'] = []
 
@@ -198,14 +199,14 @@ class ProfilingService:
         print(kv)
 
 def server(port):
-    perf_event_profiling = PerfEventProfiling()
+    perf_event_profiling = PerfEventProfiling(sampling_period=)
     mpstat_profiling = MpstatProfiling()
     state_profiling = StateProfiling(sampling_period=1)
     profiling_service = ProfilingService([perf_event_profiling, mpstat_profiling, state_profiling])
     hostname = socket.gethostname().split('.')[0]
     server = SimpleXMLRPCServer((hostname, port), allow_none=True)
     server.register_instance(profiling_service)
-    print("Listening on port {}...".format(port))
+    logging.info("Listening on port {}...".format(port))
     server.serve_forever()
 
 class StartAction:
