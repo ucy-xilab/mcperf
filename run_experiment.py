@@ -107,8 +107,8 @@ def run_single_experiment(root_results_dir, conf, idx):
             fo.write(l+'\n')
 
 def run_multiple_experiments(root_results_dir, batch_name, batch_conf):
-    configure_memcached_node(batch_conf)
-    request_qps = [10000, 10000, 50000, 100000, 200000, 300000, 400000, 500000, 1000000, 2000000]
+    #configure_memcached_node(batch_conf)
+    request_qps = [10000, 50000, 100000, 200000, 300000, 400000, 500000, 1000000, 2000000]
     root_results_dir = os.path.join(root_results_dir, batch_name)
     for qps in request_qps:
         instance_conf = copy.copy(batch_conf)
@@ -121,7 +121,7 @@ def main(argv):
         'memcached_worker_threads': 10,
         'memcached_memory_limit_mb': 16384,
         'memcached_pin_threads': 'true',
-        'mcperf_time': 10,
+        'mcperf_time': 120,
         'mcperf_warmup_qps': 1000000,
         'mcperf_warmup_time': 1,
         'mcperf_records': 1000000,
