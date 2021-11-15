@@ -84,7 +84,7 @@ class PerfEventProfiling(EventProfiling):
 
     def sample(self, timestamp):
         events_str = ','.join(self.events)
-        cmd = ['sudo', 'perf', 'stat', '-a', '-e', events_str, 'sleep', str(self.sampling_length)]
+        cmd = ['sudo', '/mydata/linux-4.15.18/perf', 'stat', '-a', '-e', events_str, 'sleep', str(self.sampling_length)]
         result = subprocess.run(cmd, stdout=subprocess.PIPE,stderr=subprocess.PIPE)
         out = result.stdout.decode('utf-8').splitlines() + result.stderr.decode('utf-8').splitlines()
         for e in self.events:
