@@ -1,12 +1,20 @@
-- name: 'A'
-  target:
-        pstate: False
-        c1: '2-2'
-        c1e: '10-20'
-        c6: True
+- name: 'baseline'
   config:
-        kernel: 
-                image: '4.15.18-c1-2-2-c1e-10-20'
-                grub_entry: '0>0'
-        boot_options:  
-                'intel_pstate=disable'
+      pstate: False
+      c1: '2-2'
+      c1e: '10-20'
+      c6: True
+  kernel: '4.15.18-c1-2-2-c1e-10-20'
+  grub:
+      menuentry: '0>0'
+      boot_options: 'intel_pstate=disable'
+- name: 'disable-cstates'
+  config:
+      pstate: False
+      c1: False
+      c1e: False
+      c6: False
+  kernel: '4.15.18-c1-2-2-c1e-10-20'
+  grub:      
+      menuentry: '0>0'
+      boot_options: 'intel_pstate=disable intel_idle.max_cstate=0 idle=poll'
