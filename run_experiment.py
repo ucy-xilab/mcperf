@@ -31,6 +31,18 @@ def run_ansible_playbook(inventory, extravars, playbook, tags=None):
     print(cmd)
     r = os.system(cmd)
 
+def run_profiler(conf):
+    run_ansible_playbook(
+        inventory='hosts', 
+        playbook='ansible/profiler.yml', 
+        tags='run_profiler')
+
+def kill_profiler(conf):
+    run_ansible_playbook(
+        inventory='hosts', 
+        playbook='ansible/profiler.yml', 
+        tags='kill_profiler')
+
 def run_remote(conf):
     extravars = [
         'WORKER_THREADS={}'.format(conf.memcached_worker_threads), 
@@ -53,13 +65,7 @@ def kill_remote(conf):
         playbook='ansible/mcperf.yml', tags='kill_memcached,kill_agents')
 
 def configure_memcached_node(conf):
-    extravars = [
-        'TURBO={}'.format(conf.system_turbo)
-    ]
-    run_ansible_playbook(
-        inventory='hosts', 
-        extravars=extravars, 
-        playbook='ansible/configure.yml')
+    os.system('ssh -n node1 "cd ~/mcperf; sudo python3 configure.py -v --turbo={} --kernelconfig={} -v"'.format(conf['turbo'], conf['kernelconfig']))
 
 def agents_list():
     config = configparser.ConfigParser(allow_no_value=True)
@@ -76,8 +82,12 @@ def run_single_experiment(root_results_dir, conf, idx):
     results_dir_path = os.path.join(root_results_dir, results_dir_name)
     memcached_results_dir_path = os.path.join(results_dir_path, 'memcached')
 
-    # prepare memcached and mcperf agents
+    # cleanup any processes left by a previous run
+    kill_profiler(conf)
     kill_remote(conf)
+
+    # prepare profiler, memcached, and mcperf agents
+    run_profiler(conf)
     run_remote(conf)
     exec_command("./memcache-perf/mcperf -s node1 --loadonly -r {} "
         "--iadist={} --keysize={} --valuesize={}"
@@ -106,8 +116,14 @@ def run_single_experiment(root_results_dir, conf, idx):
         for l in stdout:
             fo.write(l+'\n')
 
-def run_multiple_experiments(root_results_dir, batch_name, batch_conf):
-    #configure_memcached_node(batch_conf)
+    # cleanup
+    kill_remote(conf)
+    kill_profiler(conf)
+
+
+def run_multiple_experiments(root_results_dir, batch_name, system_conf, batch_conf):
+    configure_memcached_node(system_conf)
+    return 
     request_qps = [10000, 50000, 100000, 200000, 300000, 400000, 500000, 1000000, 2000000]
     root_results_dir = os.path.join(root_results_dir, batch_name)
     for qps in request_qps:
@@ -116,8 +132,11 @@ def run_multiple_experiments(root_results_dir, batch_name, batch_conf):
         run_single_experiment(root_results_dir, instance_conf, 0)
 
 def main(argv):
+    system_confs = [
+        {'turbo': False, 'kernelconfig': 'baseline'},
+        {'turbo': True, 'kernelconfig': 'baseline'},
+    ]
     batch_conf = common.Configuration({
-        'system_turbo': True, 
         'memcached_worker_threads': 10,
         'memcached_memory_limit_mb': 16384,
         'memcached_pin_threads': 'true',
@@ -133,7 +152,8 @@ def main(argv):
     if len(argv) < 1:
         raise Exception("Experiment name is missing")
     batch_name = argv[0]
-    run_multiple_experiments('/users/hvolos01/data', batch_name, batch_conf)
+    for system_conf in system_confs:
+        run_multiple_experiments('/users/hvolos01/data', batch_name, system_conf, batch_conf)
 
 if __name__ == '__main__':
     main(sys.argv[1:])
