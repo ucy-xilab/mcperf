@@ -94,8 +94,8 @@ def configure_grub(kc):
 def parse_args():
     """Configures and parses command-line arguments"""
     parser = argparse.ArgumentParser(
-                    prog = 'profiler',
-                    description='profiler',
+                    prog = 'configure',
+                    description='configure kernel',
                     formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
     parser.add_argument("-n", "--node", dest='node', help="node to configure")
@@ -126,15 +126,9 @@ def log_kernel_configuration(kc):
 
 def eprint(*args, **kwargs):
     print(*args, file=sys.stderr, **kwargs)
-
-def remote_run(node):
-    os.system('ssh -A {} sudo python3 /users/hvolos01/mcperf/configure.py {}'.format(node, sys.argv[3:]))
     
 def main():
     args = parse_args()
-    if args.node:
-        remote_run(args.node)
-        return 
 
     if os.geteuid() != 0:
         logging.error('You need root permissions to do this')
