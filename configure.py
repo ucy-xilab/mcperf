@@ -1,4 +1,5 @@
 import argparse
+import distutils.util
 import logging 
 import os
 import re
@@ -34,7 +35,7 @@ def sed_inplace(filename, pattern, repl, backup=False):
     shutil.move(tmp_file.name, filename)
 
 def load_kernel_configs():
-    with open('/users/hvolos01/mcperf/kernel_configs.yml', 'r') as f:
+    with open('kernel_configs.yml', 'r') as f:
         kcs = yaml.safe_load(f)
         return kcs
 
@@ -59,10 +60,9 @@ def find_kernel_config_using_parameters(kernel_configs, pstate, c1, c1e, c6):
 def find_kernel_config_using_current_kernel(kernel_configs):
     kernel_uname = os.popen('uname -a').read().strip()
     with open('/proc/cmdline', 'r') as fi:
-        kernel_bootoptions = fi.readline()
-    
+        kernel_bootoptions = fi.readline().strip()
     for kc in kernel_configs:
-        if kc['kernel'] == kernel_uname and kc['grub']['boot_options'] in kernel_bootoptions:
+        if kc['kernel'] in kernel_uname and kernel_bootoptions.endswith(kc['grub']['boot_options']):
             return kc
     return None                
 
@@ -79,6 +79,7 @@ def check_kernel_(kc):
     return True
 
 def configure_grub(kc):
+    logging.info('Configure grub')
     grub_default = 'GRUB_DEFAULT="{}"'.format(kc['grub']['menuentry'])
     logging.info('Set {}'.format(grub_default))
     sed_inplace('/etc/default/grub', 'GRUB_DEFAULT=.*', grub_default)
@@ -91,6 +92,23 @@ def configure_grub(kc):
 
     os.system('update-grub2')
 
+def configure_turbo(turbo):
+    logging.info('Configure turbo boost')
+    if turbo:
+        os.system('modprobe msr')
+        os.system('./turbo-boost.sh enable')
+    else:
+        os.system('./turbo-boost.sh disable')
+
+def configure_pstate(pstate):
+    logging.info('Configure pstate')
+    if not pstate:
+        os.system('LD_LIBRARY_PATH="/mydata/linux-4.15.18/" /mydata/linux-4.15.18/cpupower frequency-set -g performance')
+        os.system('LD_LIBRARY_PATH="/mydata/linux-4.15.18/" /mydata/linux-4.15.18/cpupower frequency-set -d 2200MHz')
+    else:
+        os.system('LD_LIBRARY_PATH="/mydata/linux-4.15.18/" /mydata/linux-4.15.18/cpupower frequency-set -g powersave')
+    os.system('LD_LIBRARY_PATH="/mydata/linux-4.15.18/" /mydata/linux-4.15.18/cpupower frequency-info')
+
 def parse_args():
     """Configures and parses command-line arguments"""
     parser = argparse.ArgumentParser(
@@ -100,7 +118,7 @@ def parse_args():
 
     parser.add_argument("-n", "--node", dest='node', help="node to configure")
 
-    parser.add_argument("--turbo", dest='turbo', help="turbo")
+    parser.add_argument("--turbo", dest='turbo', default=True, help="turbo")
     parser.add_argument("--kernelconfig", dest='kernelconfig', help="kernel configuration name")
     parser.add_argument("--pstate", dest='pstate', help="p state")
     parser.add_argument("--c1", dest='c1', help="c1 state")
@@ -135,7 +153,7 @@ def main():
         return
 
     kcs = load_kernel_configs()
-
+    
     if args.kernelconfig:
         target_kc = find_kernel_config_using_name(kcs, args.kernelconfig)
     else:
@@ -152,9 +170,13 @@ def main():
         log_kernel_configuration(current_kc)
     else:    
         logging.info('Current kernel configuration is not known')
-    
+
     if not current_kc or current_kc['name'] != target_kc['name']:
         configure_grub(target_kc)    
+        logging.info('Reboot machine and rerun configure to finish configuration')
+
+    configure_turbo(distutils.util.strtobool(args.turbo))
+    configure_pstate(target_kc['config']['pstate'])
 
 if __name__ == "__main__":
     main()
