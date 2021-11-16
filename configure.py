@@ -33,38 +33,37 @@ def sed_inplace(filename, pattern, repl, backup=False):
     shutil.copystat(filename, tmp_file.name)
     shutil.move(tmp_file.name, filename)
 
-def find_kernel_config_using_name(name):
-    with open('kernel_configs.yml', 'r') as f:
+def load_kernel_configs():
+    with open('/users/hvolos01/mcperf/kernel_configs.yml', 'r') as f:
         kcs = yaml.safe_load(f)
-        for kc in kcs:
-            if kc['name'] == name:
-                return kc
+        return kcs
+
+def find_kernel_config_using_name(kernel_configs, name):
+    for kc in kernel_configs:
+        if kc['name'] == name:
+            return kc
     return None 
 
-def find_kernel_config_using_parameters(pstate, c1, c1e, c6):
-    with open('kernel_configs.yml', 'r') as f:
-        kcs = yaml.safe_load(f)
-        for kc in kcs:
-            target_config = {
-                'pstate': pstate, 
-                'c1': c1, 
-                'c1e': c1e, 
-                'c6': c6
-            }
-            if kc['config'] == target_config:
-                return kc
+def find_kernel_config_using_parameters(kernel_configs, pstate, c1, c1e, c6):
+    for kc in kernel_configs:
+        target_config = {
+            'pstate': pstate, 
+            'c1': c1, 
+            'c1e': c1e, 
+            'c6': c6
+        }
+        if kc['config'] == target_config:
+            return kc
     return None
 
-def find_kernel_config_using_current_kernel():
+def find_kernel_config_using_current_kernel(kernel_configs):
     kernel_uname = os.popen('uname -a').read().strip()
     with open('/proc/cmdline', 'r') as fi:
         kernel_bootoptions = fi.readline()
     
-    with open('kernel_configs.yml', 'r') as f:
-        kcs = yaml.safe_load(f)
-        for kc in kcs:
-            if kc['kernel'] == kernel_uname and kc['grub']['boot_options'] in kernel_bootoptions:
-               return kc
+    for kc in kernel_configs:
+        if kc['kernel'] == kernel_uname and kc['grub']['boot_options'] in kernel_bootoptions:
+            return kc
     return None                
 
 def check_kernel_(kc):
@@ -99,6 +98,8 @@ def parse_args():
                     description='profiler',
                     formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
+    parser.add_argument("-n", "--node", dest='node', help="node to configure")
+
     parser.add_argument("--turbo", dest='turbo', help="turbo")
     parser.add_argument("--kernelconfig", dest='kernelconfig', help="kernel configuration name")
     parser.add_argument("--pstate", dest='pstate', help="p state")
@@ -126,23 +127,32 @@ def log_kernel_configuration(kc):
 def eprint(*args, **kwargs):
     print(*args, file=sys.stderr, **kwargs)
 
+def remote_run(node):
+    os.system('ssh -A {} sudo python3 /users/hvolos01/mcperf/configure.py {}'.format(node, sys.argv[3:]))
+    
 def main():
+    args = parse_args()
+    if args.node:
+        remote_run(args.node)
+        return 
+
     if os.geteuid() != 0:
         logging.error('You need root permissions to do this')
         return
 
-    args = parse_args()
+    kcs = load_kernel_configs()
+
     if args.kernelconfig:
-        target_kc = find_kernel_config_using_name(args.kernelconfig)
+        target_kc = find_kernel_config_using_name(kcs, args.kernelconfig)
     else:
-        target_kc = find_kernel_config_using_parameters(args.pstate, args.c1, args.c1e, args.c6)
+        target_kc = find_kernel_config_using_parameters(kcs, args.pstate, args.c1, args.c1e, args.c6)
     if not target_kc:
         logging.error("Target kernel configuration not known")
         return
     logging.info('Target kernel configuration')
     log_kernel_configuration(target_kc)
 
-    current_kc = find_kernel_config_using_current_kernel()
+    current_kc = find_kernel_config_using_current_kernel(kcs)
     if current_kc:
         logging.info('Current kernel configuration')
         log_kernel_configuration(current_kc)
