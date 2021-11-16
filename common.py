@@ -6,5 +6,4 @@ class Configuration:
     def shortname(self):
         l = []
         l.append("qps={}".format(self.mcperf_qps))
-        l.append("turbo={}".format(self.system_turbo))
         return '-'.join(l)

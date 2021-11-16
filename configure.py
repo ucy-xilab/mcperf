@@ -94,8 +94,8 @@ def configure_grub(kc):
 
 def configure_turbo(turbo):
     logging.info('Configure turbo boost')
+    os.system('modprobe msr')
     if turbo:
-        os.system('modprobe msr')
         os.system('./turbo-boost.sh enable')
     else:
         os.system('./turbo-boost.sh disable')
@@ -142,9 +142,6 @@ def log_kernel_configuration(kc):
     logging.info('  name: {}'.format(kc['name']))
     logging.info('  config: {}'.format(kc['config']))
 
-def eprint(*args, **kwargs):
-    print(*args, file=sys.stderr, **kwargs)
-    
 def main():
     args = parse_args()
 
@@ -174,6 +171,7 @@ def main():
     if not current_kc or current_kc['name'] != target_kc['name']:
         configure_grub(target_kc)    
         logging.info('Reboot machine and rerun configure to finish configuration')
+        sys.exit(2)
 
     configure_turbo(distutils.util.strtobool(args.turbo))
     configure_pstate(target_kc['config']['pstate'])

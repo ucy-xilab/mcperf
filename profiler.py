@@ -39,6 +39,8 @@ class EventProfiling:
             if self.is_active:
                 self.terminate_thread.wait(timeout=self.sampling_period - self.sampling_length)
         self.terminate_thread.release()
+        timestamp = str(int(time.time()))
+        self.zerosample(timestamp)
         logging.info("Profiling thread terminated")
 
     def start(self):
@@ -74,7 +76,7 @@ class PerfEventProfiling(EventProfiling):
 
     def get_perf_power_events(self):
         events = []
-        result = subprocess.run(['perf', 'list'], stdout=subprocess.PIPE)
+        result = subprocess.run(['/mydata/linux-4.15.18/perf', 'list'], stdout=subprocess.PIPE)
         for l in result.stdout.decode('utf-8').splitlines():
             l = l.lstrip()
             m = re.match("(power/energy-.*/)\s*\[Kernel PMU event]", l)
@@ -94,6 +96,13 @@ class PerfEventProfiling(EventProfiling):
                 if m:
                     value = m.group(1)
                     self.timeseries[e].append((timestamp, str(float(value.replace(',', '')))))
+    
+    # FIXME: Currently, we add a dummy zero sample when we finish sampling. 
+    # This helps us to determine the sampling duration later when we analyze the stats
+    # It would be nice to have a more clear solution
+    def zerosample(self, timestamp):
+        for e in self.events:
+            self.timeseries[e].append((timestamp, str(0.0)))
 
     def interrupt_sample(self):
         os.system('sudo pkill -2 sleep')
@@ -126,6 +135,9 @@ class MpstatProfiling(EventProfiling):
     def interrupt_sample(self):
         pass
 
+    def zerosample(self, timestamp):
+        pass
+
     def clear(self):
         self.timeseries = {}
         self.timeseries['cpu_util'] = []
@@ -134,6 +146,8 @@ class MpstatProfiling(EventProfiling):
         return self.timeseries
 
 class StateProfiling(EventProfiling):
+    cpuidle_path = '/sys/devices/system/cpu/cpu0/cpuidle/'
+
     def __init__(self, sampling_period=0):
         super().__init__(sampling_period)
         self.state_names = StateProfiling.power_state_names()
@@ -141,17 +155,22 @@ class StateProfiling(EventProfiling):
 
     @staticmethod
     def power_state_names():
+        cpuidle_path = StateProfiling.cpuidle_path
+        if not os.path.exists(cpuidle_path):
+            return []
         state_names = []
-        stream = os.popen('ls /sys/devices/system/cpu/cpu0/cpuidle/')
-        states = stream.readlines()
+        states = os.listdir(cpuidle_path)
         for state in states:
-            state = state.strip()
-            stream = os.popen("cat /sys/devices/system/cpu/cpu0/cpuidle/{}/name".format(state))
-            state_names.append(stream.read().strip())
+            state_name_path = os.path.join(cpuidle_path, state, 'name')
+            with open(state_name_path) as f:
+                state_names.append(f.read().strip())
         return state_names
 
     @staticmethod
     def power_state_metric(cpu_id, state_id, metric):
+        cpuidle_path = StateProfiling.cpuidle_path
+        if not os.path.exists(cpuidle_path):
+            return None
         output = open("/sys/devices/system/cpu/cpu{}/cpuidle/state{}/{}".format(cpu_id, state_id, metric)).read()
         return output.strip()
 
@@ -168,6 +187,9 @@ class StateProfiling(EventProfiling):
         self.sample_power_state_metric('time', timestamp)
 
     def interrupt_sample(self):
+        pass
+
+    def zerosample(self, timestamp):
         pass
 
     def clear(self):

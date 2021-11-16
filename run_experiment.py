@@ -4,6 +4,7 @@ import functools
 import logging
 import subprocess
 import sys
+import time 
 import os
 import configparser
 
@@ -21,8 +22,8 @@ def exec_command(cmd):
         logging.info(l)
     return result.stdout.decode('utf-8').splitlines()
 
-def run_ansible_playbook(inventory, extravars, playbook, tags=None):
-    extravars = ' '.join(extravars)
+def run_ansible_playbook(inventory, extravars=None, playbook=None, tags=None):
+    extravars = ' '.join(extravars) if extravars else ''
     if tags:
         tags = '--tags "{}"'.format(tags) 
     else:
@@ -64,8 +65,37 @@ def kill_remote(conf):
         extravars=extravars, 
         playbook='ansible/mcperf.yml', tags='kill_memcached,kill_agents')
 
+def host_is_reachable(host):
+  return True if os.popen3("ping -c 1 {}".format(host)) == 0 else False
+
+def memcached_node():
+    config = configparser.ConfigParser(allow_no_value=True)
+    config.read('hosts')
+    node = list(config['memcached'].items())
+    if len(node) > 1:
+        raise Exception('Do not support multiple memcached nodes')
+    return node[0][0]
+
+def wait_for_remote_node(node):
+    while not host_is_reachable(node):
+        logging.info('Waiting for remote host {}...'.format(node))
+        time.sleep(30)
+        pass
+
 def configure_memcached_node(conf):
-    os.system('ssh -n node1 "cd ~/mcperf; sudo python3 configure.py -v --turbo={} --kernelconfig={} -v"'.format(conf['turbo'], conf['kernelconfig']))
+    node = memcached_node()
+    rc = os.system('ssh -n {} "cd ~/mcperf; sudo python3 configure.py -v --turbo={} --kernelconfig={} -v"'.format(node, conf['turbo'], conf['kernelconfig']))
+    exit_status = rc >> 8 
+    if exit_status == 2:
+        logging.info('Rebooting remote host {}...'.format(node))
+        os.system('ssh -n {} "sudo shutdown -r now"'.format(node))
+        logging.info('Waiting for remote host {}...'.format(node))
+        time.sleep(30)
+        while not host_is_reachable(node):
+            logging.info('Waiting for remote host {}...'.format(node))
+            time.sleep(30)
+            pass
+        os.system('ssh -n {} "cd ~/mcperf; sudo python3 configure.py -v --turbo={} --kernelconfig={} -v"'.format(node, conf['turbo'], conf['kernelconfig']))
 
 def agents_list():
     config = configparser.ConfigParser(allow_no_value=True)
@@ -76,8 +106,8 @@ def agents_parameter():
     la = ["-a " + a for a in agents_list()]
     return ' '.join(la)
 
-def run_single_experiment(root_results_dir, conf, idx):
-    name = conf.shortname()
+def run_single_experiment(root_results_dir, name_prefix, conf, idx):
+    name = name_prefix + conf.shortname()
     results_dir_name = "{}-{}".format(name, idx)
     results_dir_path = os.path.join(root_results_dir, results_dir_name)
     memcached_results_dir_path = os.path.join(results_dir_path, 'memcached')
@@ -123,18 +153,20 @@ def run_single_experiment(root_results_dir, conf, idx):
 
 def run_multiple_experiments(root_results_dir, batch_name, system_conf, batch_conf):
     configure_memcached_node(system_conf)
-    return 
-    request_qps = [10000, 50000, 100000, 200000, 300000, 400000, 500000, 1000000, 2000000]
+    name_prefix = "turbo={}-kernelconfig={}-".format(system_conf['turbo'], system_conf['kernelconfig'])
+    #request_qps = [10000, 50000, 100000, 200000, 300000, 400000, 500000, 1000000, 2000000]
+    request_qps = [10000]
     root_results_dir = os.path.join(root_results_dir, batch_name)
     for qps in request_qps:
         instance_conf = copy.copy(batch_conf)
         instance_conf.set('mcperf_qps', qps)
-        run_single_experiment(root_results_dir, instance_conf, 0)
+        run_single_experiment(root_results_dir, name_prefix, instance_conf, 0)
 
 def main(argv):
     system_confs = [
-        {'turbo': False, 'kernelconfig': 'baseline'},
-        {'turbo': True, 'kernelconfig': 'baseline'},
+        {'turbo': False, 'kernelconfig': 'disable_cstates'},
+#        {'turbo': False, 'kernelconfig': 'baseline'},
+#        {'turbo': True, 'kernelconfig': 'baseline'},
     ]
     batch_conf = common.Configuration({
         'memcached_worker_threads': 10,

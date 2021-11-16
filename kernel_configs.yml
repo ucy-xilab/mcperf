@@ -37,7 +37,7 @@
   kernel: '4.15.18-c1-1-1-c1e-10-20'
   grub:      
       menuentry: '0>2'
-      boot_options: 'intel_pstate=disable intel_idle.max_cstate=2'
+      boot_options: 'intel_pstate=disable'
 - name: 'quick_c1_disable_c6'
   config:
       pstate: False
@@ -57,4 +57,4 @@
   kernel: '4.15.18-c1-1-1-c1e-10-20'
   grub:      
       menuentry: '0>4'
-      boot_options: 'intel_pstate=disable intel_idle.max_cstate=2'
+      boot_options: 'intel_pstate=disable'
