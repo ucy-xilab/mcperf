@@ -1,8 +1,9 @@
-import ast 
+import ast
 import os
 import re
 import sys
 import matplotlib.pyplot as plt
+import matplotlib.backends.backend_pdf
 
 def derive_datatype(datastr):
     try:
@@ -83,8 +84,7 @@ def parse_single_instance_stats(stats_dir):
     server_stats_dir = os.path.join(stats_dir, 'memcached')
     server_cstate_stats = parse_cstate_stats(server_stats_dir)
     server_perf_stats = parse_perf_stats(server_stats_dir)
-    #stats['server'] = {**server_cstate_stats, **server_perf_stats}
-    stats['server'] = server_perf_stats
+    stats['server'] = {**server_cstate_stats, **server_perf_stats}
     mcperf_stats_file = os.path.join(stats_dir, 'mcperf')
     stats['mcperf'] = parse_mcperf_stats(mcperf_stats_file)
     return stats
@@ -127,21 +127,26 @@ def avg_state_time_perc(stats, cpu_id_list):
     avg_state_time_perc = [a/b for a, b in zip(total_state_time_perc, [cpu_count]*len(total_state_time_perc))]
     return avg_state_time_perc
 
-def shortname(qps=None, turbo=None):
+def system_conf_shortname(system_conf):
+    l = [
+        'turbo={}'.format(system_conf['turbo']),
+        'kernelconfig={}'.format(system_conf['kernelconfig']),
+    ]
+    return '-'.join(l) + '-'
+
+def shortname(qps=None):
     l = []
     if qps:
         l.append('qps={}'.format(qps))
-    if turbo:
-        l.append('turbo={}'.format(turbo))
     l.append('0')
     return '-'.join(l)
 
-def plot_residency_per_qps(stats, qps_list, turbo):
+def plot_residency_per_qps(stats, system_conf, qps_list):
     bars = []
     labels = []
     state_names = ['C0', 'C1', 'C1E', 'C6']
     for qps in qps_list:
-        instance_name = shortname(qps, turbo)
+        instance_name = system_conf_shortname(system_conf) + shortname(qps)
         time_perc = avg_state_time_perc(stats[instance_name]['server'], range(0, 10))
     
         labels.append(str(int(qps/1000))+'K')
@@ -167,17 +172,20 @@ def plot_residency_per_qps(stats, qps_list, turbo):
     ax.set_ylabel('C-State Residency (fraction)')
     ax.set_xlabel('Request Rate (QPS)')
     ax.legend()
+    plt.title(system_conf_shortname(system_conf))
+    #plt.show()
+    return fig
 
-    plt.show()
-
-def plot_latency_per_qps(stats, qps_list, turbo_list):
+def plot_latency_per_qps(stats, system_confs, qps_list):
     axis_scale = 0.001
-    for turbo in turbo_list:
+    if not isinstance(system_confs, list):
+        system_confs = [system_confs]
+    for system_conf in system_confs:
         read_avg = []
         read_p99 = []
-        extra_params = 'turbo={}'.format(turbo)
+        extra_params = system_conf_shortname(system_conf)
         for qps in qps_list:
-            instance_name = shortname(qps, turbo)
+            instance_name = system_conf_shortname(system_conf) + shortname(qps)
             mcperf_stats = stats[instance_name]['mcperf']
             read_avg.append(mcperf_stats['read']['avg'])
             read_p99.append(mcperf_stats['read']['p99'])
@@ -191,9 +199,8 @@ def plot_latency_per_qps(stats, qps_list, turbo_list):
     ax.set_xlabel('Request Rate (KQPS)')
     ax.legend()
 
-    plt.show()
+    return fig
 
-# FIXME: What to do with energy of missing timestamps?
 def avg_power(timeseries):
     total_val = 0
     for (ts, val) in timeseries:
@@ -201,13 +208,15 @@ def avg_power(timeseries):
     time = timeseries[-1][0] - timeseries[0][0]
     return total_val / time
 
-def plot_power_per_qps(stats, qps_list, turbo_list):
+def plot_power_per_qps(stats, system_confs, qps_list):
     axis_scale = 0.001
-    for turbo in turbo_list:
+    if not isinstance(system_confs, list):
+        system_confs = [system_confs]
+    for system_conf in system_confs:
         power = []
-        extra_params = 'turbo={}'.format(turbo)
+        extra_params = system_conf_shortname(system_conf)
         for qps in qps_list:
-            instance_name = shortname(qps, turbo=None)
+            instance_name = system_conf_shortname(system_conf) + shortname(qps)
             system_stats = stats[instance_name]['server']
             power.append(avg_power(system_stats['power/energy-pkg/']))
 
@@ -218,17 +227,32 @@ def plot_power_per_qps(stats, qps_list, turbo_list):
     ax.set_ylabel('Power (W)')
     ax.set_xlabel('Request Rate (KQPS)')
     ax.legend()
-
-    plt.show()
+    
+    return fig
 
 def main(argv):
     stats_root_dir = argv[1]
     stats = parse_multiple_instances_stats(stats_root_dir)
+    system_confs = [
+        {'turbo': False, 'kernelconfig': 'baseline'},
+        # {'turbo': False, 'kernelconfig': 'disable_cstates'},
+        # {'turbo': False, 'kernelconfig': 'disable_c6'},
+        # {'turbo': False, 'kernelconfig': 'quick_c1'},
+        # {'turbo': False, 'kernelconfig': 'quick_c1_disable_c6'},
+        # {'turbo': False, 'kernelconfig': 'quick_c1_quick_c6'},
+    ]
     qps_list = [10000, 50000, 100000, 200000, 300000, 400000, 500000, 1000000, 2000000]
-    turbo_list = [True]
-    #plot_residency_per_qps(stats, qps_list, turbo_list[0])
-    #plot_latency_per_qps(stats, qps_list, turbo_list)
-    plot_power_per_qps(stats, qps_list, turbo_list)
+
+    pdf = matplotlib.backends.backend_pdf.PdfPages("output.pdf")
+    for system_conf in system_confs:
+        fig1 = plot_residency_per_qps(stats, system_conf, qps_list)
+        fig2 = plot_latency_per_qps(stats, system_conf, qps_list)
+        fig3 = plot_power_per_qps(stats, system_conf, qps_list)
+        #plt.show()
+        pdf.savefig(fig1)
+        pdf.savefig(fig2)
+        pdf.savefig(fig3)
+    pdf.close()
 
 if __name__ == '__main__':
     main(sys.argv)
