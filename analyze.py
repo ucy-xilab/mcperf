@@ -103,16 +103,18 @@ def cpu_state_time_perc(data, cpu_id):
     total_state_time = 0
     time_us = 0
     for state_name in state_names:
-        (ts_start, val_start) = data[cpu_str][state_name]['time'][0]
-        (ts_end, val_end) = data[cpu_str][state_name]['time'][-1]
-        time_us = max(time_us, (ts_end - ts_start) * 1000000.0)
-        total_state_time += val_end - val_start
+        if state_name in data[cpu_str]:
+            (ts_start, val_start) = data[cpu_str][state_name]['time'][0]
+            (ts_end, val_end) = data[cpu_str][state_name]['time'][-1]
+            time_us = max(time_us, (ts_end - ts_start) * 1000000.0)
+            total_state_time += val_end - val_start
 
     time_us = max(time_us, total_state_time)
     for state_name in state_names:
-        (ts_start, val_start) = data[cpu_str][state_name]['time'][0]
-        (ts_end, val_end) = data[cpu_str][state_name]['time'][-1]
-        state_time_perc.append((val_end-val_start)/time_us)
+        if state_name in data[cpu_str]:
+            (ts_start, val_start) = data[cpu_str][state_name]['time'][0]
+            (ts_end, val_end) = data[cpu_str][state_name]['time'][-1]
+            state_time_perc.append((val_end-val_start)/time_us)
     # calculate C0 
     state_time_perc[0] = 1 - sum(state_time_perc[1:4])
     state_names[0] = 'C0' 
@@ -144,7 +146,12 @@ def shortname(qps=None):
 def plot_residency_per_qps(stats, system_conf, qps_list):
     bars = []
     labels = []
-    state_names = ['C0', 'C1', 'C1E', 'C6']
+    all_state_names = ['C0', 'C1', 'C1E', 'C6']
+    state_names = []
+    for state_name in all_state_names:
+        instance_name = system_conf_shortname(system_conf) + shortname('10000')
+        if state_name in stats[instance_name]['server']['CPU0']:
+            state_names.append(state_name)
     for qps in qps_list:
         instance_name = system_conf_shortname(system_conf) + shortname(qps)
         time_perc = avg_state_time_perc(stats[instance_name]['server'], range(0, 10))
@@ -231,12 +238,13 @@ def plot_power_per_qps(stats, system_confs, qps_list):
     return fig
 
 def main(argv):
+    interactive = False
     stats_root_dir = argv[1]
     stats = parse_multiple_instances_stats(stats_root_dir)
     system_confs = [
         {'turbo': False, 'kernelconfig': 'baseline'},
-        # {'turbo': False, 'kernelconfig': 'disable_cstates'},
-        # {'turbo': False, 'kernelconfig': 'disable_c6'},
+         {'turbo': False, 'kernelconfig': 'disable_cstates'},
+         {'turbo': False, 'kernelconfig': 'disable_c6'},
         # {'turbo': False, 'kernelconfig': 'quick_c1'},
         # {'turbo': False, 'kernelconfig': 'quick_c1_disable_c6'},
         # {'turbo': False, 'kernelconfig': 'quick_c1_quick_c6'},
@@ -245,12 +253,21 @@ def main(argv):
 
     pdf = matplotlib.backends.backend_pdf.PdfPages("output.pdf")
     for system_conf in system_confs:
-        fig1 = plot_residency_per_qps(stats, system_conf, qps_list)
+        firstPage = plt.figure()
+        firstPage.clf()
+        txt = system_conf_shortname(system_conf)
+        firstPage.text(0.5,0.5, txt, transform=firstPage.transFigure, size=14, ha="center")
+        pdf.savefig(firstPage)
+        plt.close()
+        if system_conf['kernelconfig'] != 'disable_cstates':
+            fig1 = plot_residency_per_qps(stats, system_conf, qps_list)
+            pdf.savefig(fig1)
         fig2 = plot_latency_per_qps(stats, system_conf, qps_list)
-        fig3 = plot_power_per_qps(stats, system_conf, qps_list)
-        #plt.show()
-        pdf.savefig(fig1)
         pdf.savefig(fig2)
+        fig3 = plot_power_per_qps(stats, system_conf, qps_list)
+        if interactive:
+            plt.show()
+        plt.close()
         pdf.savefig(fig3)
     pdf.close()
 
