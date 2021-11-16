@@ -269,11 +269,11 @@ def main(argv):
     stats = parse_multiple_instances_stats(stats_root_dir)
     system_confs = [
         {'turbo': False, 'kernelconfig': 'baseline'},
-         {'turbo': False, 'kernelconfig': 'disable_cstates'},
-         {'turbo': False, 'kernelconfig': 'disable_c6'},
-        # {'turbo': False, 'kernelconfig': 'quick_c1'},
-        # {'turbo': False, 'kernelconfig': 'quick_c1_disable_c6'},
-        # {'turbo': False, 'kernelconfig': 'quick_c1_quick_c6'},
+        {'turbo': False, 'kernelconfig': 'disable_cstates'},
+        {'turbo': False, 'kernelconfig': 'disable_c6'},
+        {'turbo': False, 'kernelconfig': 'quick_c1'},
+        {'turbo': False, 'kernelconfig': 'quick_c1_disable_c6'},
+        {'turbo': False, 'kernelconfig': 'quick_c1_c1e'},
     ]
     qps_list = [10000, 50000, 100000, 200000, 300000, 400000, 500000, 1000000, 2000000]
 
