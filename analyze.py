@@ -27,6 +27,8 @@ def parse_mcperf_stats(mcperf_results_path):
                     update_stats_dict[stat_name] = float(update_stats[i])
                 stats['read'] = read_stats_dict
                 stats['update'] = update_stats_dict
+            if l.startswith('Total QPS'):
+                stats['total_qps'] = float(l.split()[3])
     return stats
 
 def read_timeseries(filepath):
@@ -102,20 +104,21 @@ def cpu_state_time_perc(data, cpu_id):
     state_time_perc = []
     total_state_time = 0
     time_us = 0
+    # determine time window of measurements
     for state_name in state_names:
         if state_name in data[cpu_str]:
             (ts_start, val_start) = data[cpu_str][state_name]['time'][0]
             (ts_end, val_end) = data[cpu_str][state_name]['time'][-1]
             time_us = max(time_us, (ts_end - ts_start) * 1000000.0)
-            total_state_time += val_end - val_start
-
+            total_state_time += val_end - val_start    
     time_us = max(time_us, total_state_time)
+    # calculate percentage
     for state_name in state_names:
         if state_name in data[cpu_str]:
             (ts_start, val_start) = data[cpu_str][state_name]['time'][0]
             (ts_end, val_end) = data[cpu_str][state_name]['time'][-1]
             state_time_perc.append((val_end-val_start)/time_us)
-    # calculate C0 
+    # calculate C0 as the remaining time 
     state_time_perc[0] = 1 - sum(state_time_perc[1:4])
     state_names[0] = 'C0' 
     return state_time_perc
@@ -143,12 +146,12 @@ def shortname(qps=None):
     l.append('0')
     return '-'.join(l)
 
-def plot_residency_per_qps(stats, system_conf, qps_list):
+def plot_residency_per_target_qps(stats, system_conf, qps_list):
     bars = []
     labels = []
-    all_state_names = ['C0', 'C1', 'C1E', 'C6']
-    state_names = []
-    for state_name in all_state_names:
+    state_names = ['C0']
+    check_state_names = ['C1', 'C1E', 'C6']
+    for state_name in check_state_names:
         instance_name = system_conf_shortname(system_conf) + shortname('10000')
         if state_name in stats[instance_name]['server']['CPU0']:
             state_names.append(state_name)
@@ -161,7 +164,6 @@ def plot_residency_per_qps(stats, system_conf, qps_list):
         for state_id in range(0, len(state_names)):
             bar.append(time_perc[state_id])
         bars.append(bar)
-        print(bar)
     
     width = 0.35       # the width of the bars: can also be len(x) sequence
         
@@ -183,7 +185,7 @@ def plot_residency_per_qps(stats, system_conf, qps_list):
     #plt.show()
     return fig
 
-def plot_latency_per_qps(stats, system_confs, qps_list):
+def plot_latency_per_target_qps(stats, system_confs, qps_list):
     axis_scale = 0.001
     if not isinstance(system_confs, list):
         system_confs = [system_confs]
@@ -208,6 +210,30 @@ def plot_latency_per_qps(stats, system_confs, qps_list):
 
     return fig
 
+def plot_qps_per_target_qps(stats, system_confs, qps_list):
+    axis_scale = 0.001
+    if not isinstance(system_confs, list):
+        system_confs = [system_confs]
+    for system_conf in system_confs:
+        total_qps = []
+        extra_params = system_conf_shortname(system_conf)
+        for qps in qps_list:
+            instance_name = system_conf_shortname(system_conf) + shortname(qps)
+            mcperf_stats = stats[instance_name]['mcperf']
+            total_qps.append(mcperf_stats['total_qps'])
+
+        fig, ax = plt.subplots()
+        qps_list = [q *axis_scale for q in qps_list]
+        total_qps = [q *axis_scale for q in total_qps]
+        plt.plot(qps_list, total_qps, label='total qps - {}'.format(extra_params))
+
+    ax.set_ylabel('Total Rate (KQPS)')
+    ax.set_xlabel('Request Rate (KQPS)')
+    ax.legend()
+
+    return fig
+
+
 def avg_power(timeseries):
     total_val = 0
     for (ts, val) in timeseries:
@@ -215,7 +241,7 @@ def avg_power(timeseries):
     time = timeseries[-1][0] - timeseries[0][0]
     return total_val / time
 
-def plot_power_per_qps(stats, system_confs, qps_list):
+def plot_power_per_target_qps(stats, system_confs, qps_list):
     axis_scale = 0.001
     if not isinstance(system_confs, list):
         system_confs = [system_confs]
@@ -260,15 +286,17 @@ def main(argv):
         pdf.savefig(firstPage)
         plt.close()
         if system_conf['kernelconfig'] != 'disable_cstates':
-            fig1 = plot_residency_per_qps(stats, system_conf, qps_list)
+            fig1 = plot_residency_per_target_qps(stats, system_conf, qps_list)
             pdf.savefig(fig1)
-        fig2 = plot_latency_per_qps(stats, system_conf, qps_list)
+        fig2 = plot_qps_per_target_qps(stats, system_conf, qps_list)
         pdf.savefig(fig2)
-        fig3 = plot_power_per_qps(stats, system_conf, qps_list)
+        fig3 = plot_latency_per_target_qps(stats, system_conf, qps_list)
+        pdf.savefig(fig3)
+        fig4 = plot_power_per_target_qps(stats, system_conf, qps_list)
+        pdf.savefig(fig4)
         if interactive:
             plt.show()
         plt.close()
-        pdf.savefig(fig3)
     pdf.close()
 
 if __name__ == '__main__':
