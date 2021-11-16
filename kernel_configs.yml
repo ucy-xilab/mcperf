@@ -7,6 +7,6 @@
   config:
         kernel: 
                 image: '4.15.18-c1-2-2-c1e-10-20'
-                grub_entry: 1
+                grub_entry: '0>0'
         boot_options:  
                 'intel_pstate=disable'
