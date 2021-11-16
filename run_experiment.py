@@ -66,7 +66,7 @@ def kill_remote(conf):
         playbook='ansible/mcperf.yml', tags='kill_memcached,kill_agents')
 
 def host_is_reachable(host):
-  return True if os.popen3("ping -c 1 {}".format(host)) == 0 else False
+  return True if os.system("ping -c 1 {}".format(host)) == 0 else False
 
 def memcached_node():
     config = configparser.ConfigParser(allow_no_value=True)
@@ -154,8 +154,7 @@ def run_single_experiment(root_results_dir, name_prefix, conf, idx):
 def run_multiple_experiments(root_results_dir, batch_name, system_conf, batch_conf):
     configure_memcached_node(system_conf)
     name_prefix = "turbo={}-kernelconfig={}-".format(system_conf['turbo'], system_conf['kernelconfig'])
-    #request_qps = [10000, 50000, 100000, 200000, 300000, 400000, 500000, 1000000, 2000000]
-    request_qps = [10000]
+    request_qps = [10000, 50000, 100000, 200000, 300000, 400000, 500000, 1000000, 2000000]
     root_results_dir = os.path.join(root_results_dir, batch_name)
     for qps in request_qps:
         instance_conf = copy.copy(batch_conf)
@@ -164,9 +163,12 @@ def run_multiple_experiments(root_results_dir, batch_name, system_conf, batch_co
 
 def main(argv):
     system_confs = [
+        {'turbo': False, 'kernelconfig': 'baseline'},
         {'turbo': False, 'kernelconfig': 'disable_cstates'},
-#        {'turbo': False, 'kernelconfig': 'baseline'},
-#        {'turbo': True, 'kernelconfig': 'baseline'},
+        {'turbo': False, 'kernelconfig': 'disable_c6'},
+        {'turbo': False, 'kernelconfig': 'quick_c1'},
+        {'turbo': False, 'kernelconfig': 'quick_c1_disable_c6'},
+        {'turbo': False, 'kernelconfig': 'quick_c1_quick_c6'},
     ]
     batch_conf = common.Configuration({
         'memcached_worker_threads': 10,

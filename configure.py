@@ -174,7 +174,8 @@ def main():
         sys.exit(2)
 
     configure_turbo(distutils.util.strtobool(args.turbo))
-    configure_pstate(target_kc['config']['pstate'])
+    # Yanos said we can keep the default governor
+    #configure_pstate(target_kc['config']['pstate'])
 
 if __name__ == "__main__":
     main()
