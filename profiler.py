@@ -69,13 +69,14 @@ class EventProfiling:
 class PerfEventProfiling(EventProfiling):
     def __init__(self, sampling_period=1, sampling_length=1):
         super().__init__(sampling_period, sampling_length)
-        self.perf_path = find_perf_path()
+        self.perf_path = self.find_perf_path()
+        logging.info('Perf found at {}'.format(self.perf_path)) 
         self.events = self.get_perf_power_events()
         self.timeseries = {}
         for e in self.events:
             self.timeseries[e] = []
 
-    def find_perf_path():
+    def find_perf_path(self):
         kernel_uname = os.popen('uname -a').read().strip()
         if '4.15.0-159-generic' in kernel_uname:
             return '/usr/bin/perf'

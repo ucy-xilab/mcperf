@@ -152,7 +152,7 @@ def run_single_experiment(root_results_dir, name_prefix, conf, idx):
 
 
 def run_multiple_experiments(root_results_dir, batch_name, system_conf, batch_conf):
-    #configure_memcached_node(system_conf)
+    configure_memcached_node(system_conf)
     name_prefix = "turbo={}-kernelconfig={}-".format(system_conf['turbo'], system_conf['kernelconfig'])
     request_qps = [10000, 50000, 100000, 200000, 300000, 400000, 500000, 1000000, 2000000]
     root_results_dir = os.path.join(root_results_dir, batch_name)
@@ -165,8 +165,8 @@ def main(argv):
     system_confs = [
         {'turbo': True,  'kernelconfig': 'vanilla'},
         {'turbo': False,  'kernelconfig': 'vanilla'},
-        {'turbo': True, 'kernelconfig': 'baseline_with_pstates'},
-        {'turbo': False, 'kernelconfig': 'baseline_with_pstates'},
+        {'turbo': True, 'kernelconfig': 'baseline_with_pstate'},
+        {'turbo': False, 'kernelconfig': 'baseline_with_pstate'},
         {'turbo': True, 'kernelconfig': 'baseline'},
         {'turbo': False, 'kernelconfig': 'baseline'},
 #        {'turbo': False, 'kernelconfig': 'disable_cstates'},
