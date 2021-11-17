@@ -69,14 +69,22 @@ class EventProfiling:
 class PerfEventProfiling(EventProfiling):
     def __init__(self, sampling_period=1, sampling_length=1):
         super().__init__(sampling_period, sampling_length)
+        self.perf_path = find_perf_path()
         self.events = self.get_perf_power_events()
         self.timeseries = {}
         for e in self.events:
             self.timeseries[e] = []
 
+    def find_perf_path():
+        kernel_uname = os.popen('uname -a').read().strip()
+        if '4.15.0-159-generic' in kernel_uname:
+            return '/usr/bin/perf'
+        else:
+            return '/mydata/linux-4.15.18/perf'
+
     def get_perf_power_events(self):
         events = []
-        result = subprocess.run(['/mydata/linux-4.15.18/perf', 'list'], stdout=subprocess.PIPE)
+        result = subprocess.run([self.perf_path, 'list'], stdout=subprocess.PIPE)
         for l in result.stdout.decode('utf-8').splitlines():
             l = l.lstrip()
             m = re.match("(power/energy-.*/)\s*\[Kernel PMU event]", l)
@@ -86,7 +94,7 @@ class PerfEventProfiling(EventProfiling):
 
     def sample(self, timestamp):
         events_str = ','.join(self.events)
-        cmd = ['sudo', '/mydata/linux-4.15.18/perf', 'stat', '-a', '-e', events_str, 'sleep', str(self.sampling_length)]
+        cmd = ['sudo', self.perf_path, 'stat', '-a', '-e', events_str, 'sleep', str(self.sampling_length)]
         result = subprocess.run(cmd, stdout=subprocess.PIPE,stderr=subprocess.PIPE)
         out = result.stdout.decode('utf-8').splitlines() + result.stderr.decode('utf-8').splitlines()
         for e in self.events:
