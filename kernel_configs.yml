@@ -8,7 +8,7 @@
   grub:
       menuentry: '1>6'
       boot_options: ''
--- name: 'baseline'
+- name: 'baseline'
   config:
       pstate: True
       c1: '2_2'
@@ -18,7 +18,7 @@
   grub:
       menuentry: '1>0'
       boot_options: 'intel_pstate=disable'
--- name: 'baseline_with_pstate'
+- name: 'baseline_with_pstate'
   config:
       pstate: False
       c1: '2_2'
