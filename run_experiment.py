@@ -163,17 +163,21 @@ def run_multiple_experiments(root_results_dir, batch_name, system_conf, batch_co
 
 def main(argv):
     system_confs = [
-        {'turbo': True,  'kernelconfig': 'vanilla'},
-        {'turbo': False,  'kernelconfig': 'vanilla'},
-#        {'turbo': True, 'kernelconfig': 'baseline_with_pstate'},
-#        {'turbo': False, 'kernelconfig': 'baseline_with_pstate'},
-        {'turbo': True, 'kernelconfig': 'baseline'},
-        {'turbo': False, 'kernelconfig': 'baseline'},
-        {'turbo': False, 'kernelconfig': 'disable_cstates'},
-        {'turbo': False, 'kernelconfig': 'disable_c6'},
+#        {'turbo': True,  'kernelconfig': 'vanilla'},
+#        {'turbo': False,  'kernelconfig': 'vanilla'},
+#        {'turbo': True, 'kernelconfig': 'baseline'},
+#        {'turbo': False, 'kernelconfig': 'baseline'},
+#        {'turbo': False, 'kernelconfig': 'disable_cstates'},
+#        {'turbo': False, 'kernelconfig': 'disable_c6'},
 #        {'turbo': False, 'kernelconfig': 'quick_c1'},
 #        {'turbo': False, 'kernelconfig': 'quick_c1_disable_c6'},
 #        {'turbo': False, 'kernelconfig': 'quick_c1_c1e'},
+         {'turbo': True, 'kernelconfig': 'baseline'},
+         {'turbo': True, 'kernelconfig': 'disable_cstates'},
+         {'turbo': True, 'kernelconfig': 'disable_c6'},
+         {'turbo': True, 'kernelconfig': 'quick_c1'},
+         {'turbo': True, 'kernelconfig': 'quick_c1_disable_c6'},
+         {'turbo': True, 'kernelconfig': 'quick_c1_c1e'},
     ]
     batch_conf = common.Configuration({
         'memcached_worker_threads': 10,
