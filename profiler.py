@@ -169,6 +169,7 @@ class StateProfiling(EventProfiling):
             return []
         state_names = []
         states = os.listdir(cpuidle_path)
+        states.sort()
         for state in states:
             state_name_path = os.path.join(cpuidle_path, state, 'name')
             with open(state_name_path) as f:
