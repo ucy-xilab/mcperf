@@ -87,7 +87,6 @@ def configure_memcached_node(conf):
     print('ssh -n {} "cd ~/mcperf; sudo python3 configure.py -v --turbo={} --kernelconfig={} -v"'.format(node, conf['turbo'], conf['kernelconfig']))
     rc = os.system('ssh -n {} "cd ~/mcperf; sudo python3 configure.py -v --turbo={} --kernelconfig={} -v"'.format(node, conf['turbo'], conf['kernelconfig']))
     exit_status = rc >> 8 
-    sys.exit(1)
     if exit_status == 2:
         logging.info('Rebooting remote host {}...'.format(node))
         os.system('ssh -n {} "sudo shutdown -r now"'.format(node))
