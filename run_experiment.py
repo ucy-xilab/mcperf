@@ -84,8 +84,10 @@ def wait_for_remote_node(node):
 
 def configure_memcached_node(conf):
     node = memcached_node()
+    print('ssh -n {} "cd ~/mcperf; sudo python3 configure.py -v --turbo={} --kernelconfig={} -v"'.format(node, conf['turbo'], conf['kernelconfig']))
     rc = os.system('ssh -n {} "cd ~/mcperf; sudo python3 configure.py -v --turbo={} --kernelconfig={} -v"'.format(node, conf['turbo'], conf['kernelconfig']))
     exit_status = rc >> 8 
+    sys.exit(1)
     if exit_status == 2:
         logging.info('Rebooting remote host {}...'.format(node))
         os.system('ssh -n {} "sudo shutdown -r now"'.format(node))
@@ -159,25 +161,26 @@ def run_multiple_experiments(root_results_dir, batch_name, system_conf, batch_co
     for qps in request_qps:
         instance_conf = copy.copy(batch_conf)
         instance_conf.set('mcperf_qps', qps)
-        run_single_experiment(root_results_dir, name_prefix, instance_conf, 0)
+        run_single_experiment(root_results_dir, name_prefix, instance_conf, 1)
 
 def main(argv):
     system_confs = [
 #        {'turbo': True,  'kernelconfig': 'vanilla'},
 #        {'turbo': False,  'kernelconfig': 'vanilla'},
-#        {'turbo': True, 'kernelconfig': 'baseline'},
-#        {'turbo': False, 'kernelconfig': 'baseline'},
-#        {'turbo': False, 'kernelconfig': 'disable_cstates'},
-#        {'turbo': False, 'kernelconfig': 'disable_c6'},
-#        {'turbo': False, 'kernelconfig': 'quick_c1'},
-#        {'turbo': False, 'kernelconfig': 'quick_c1_disable_c6'},
-#        {'turbo': False, 'kernelconfig': 'quick_c1_c1e'},
-         {'turbo': True, 'kernelconfig': 'baseline'},
-         {'turbo': True, 'kernelconfig': 'disable_cstates'},
-         {'turbo': True, 'kernelconfig': 'disable_c6'},
-         {'turbo': True, 'kernelconfig': 'quick_c1'},
-         {'turbo': True, 'kernelconfig': 'quick_c1_disable_c6'},
-         {'turbo': True, 'kernelconfig': 'quick_c1_c1e'},
+#         {'turbo': False, 'kernelconfig': 'baseline'},
+#         {'turbo': False, 'kernelconfig': 'disable_cstates'},
+#         {'turbo': False, 'kernelconfig': 'disable_c6'},
+         {'turbo': False, 'kernelconfig': 'disable_c1e_c6'},
+#         {'turbo': False, 'kernelconfig': 'quick_c1'},
+#         {'turbo': False, 'kernelconfig': 'quick_c1_disable_c6'},
+#         {'turbo': False, 'kernelconfig': 'quick_c1_c1e'},
+#         {'turbo': True, 'kernelconfig': 'baseline'},
+#         {'turbo': True, 'kernelconfig': 'disable_cstates'},
+#         {'turbo': True, 'kernelconfig': 'disable_c6'},
+         {'turbo': True, 'kernelconfig': 'disable_c1e_c6'},
+#         {'turbo': True, 'kernelconfig': 'quick_c1'},
+#         {'turbo': True, 'kernelconfig': 'quick_c1_disable_c6'},
+#         {'turbo': True, 'kernelconfig': 'quick_c1_c1e'},
     ]
     batch_conf = common.Configuration({
         'memcached_worker_threads': 10,

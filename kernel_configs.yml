@@ -10,16 +10,6 @@
       boot_options: ''
 - name: 'baseline'
   config:
-      pstate: True
-      c1: '2_2'
-      c1e: '10_20'
-      c6: True
-  kernel: '4.15.18-c1-2-2-c1e-10-20'
-  grub:
-      menuentry: '1>0'
-      boot_options: 'intel_pstate=disable'
-- name: 'baseline_with_pstate'
-  config:
       pstate: False
       c1: '2_2'
       c1e: '10_20'
@@ -27,7 +17,7 @@
   kernel: '4.15.18-c1-2-2-c1e-10-20'
   grub:
       menuentry: '1>0'
-      boot_options: ''
+      boot_options: 'intel_pstate=disable'
 - name: 'disable_cstates'
   config:
       pstate: False
@@ -48,6 +38,16 @@
   grub:      
       menuentry: '1>0'
       boot_options: 'intel_pstate=disable intel_idle.max_cstate=2'
+- name: 'disable_c1e_c6'
+  config:
+      pstate: False
+      c1: '2_2'
+      c1e: False
+      c6: False
+  kernel: '4.15.18-c1-2-2-c1e-10-20'
+  grub:      
+      menuentry: '1>0'
+      boot_options: 'intel_pstate=disable intel_idle.max_cstate=1'
 - name: 'quick_c1'
   config:
       pstate: False
