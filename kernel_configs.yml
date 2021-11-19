@@ -73,8 +73,8 @@
       pstate: False
       c1: '1_1'
       c1e: '5_20'
-      c6: False
-  kernel: '4.15.18-c1-1-1-c1e-10-20'
+      c6: True
+  kernel: '4.15.18-c1-1-1-c1e-05-20'
   grub:      
       menuentry: '1>4'
       boot_options: 'intel_pstate=disable'
