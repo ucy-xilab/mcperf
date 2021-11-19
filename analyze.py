@@ -92,9 +92,9 @@ def parse_cstate_stats(stats_dir):
         m = prog.match(f)
         if m:
             stats_file = os.path.join(stats_dir, f)
-            cpu_id = m.group(0)
-            state_name = m.group(1)
-            metric_name = m.group(2)
+            cpu_id = m.group(1)
+            state_name = m.group(2)
+            metric_name = m.group(3)
             (metric_name, timeseries) = read_timeseries(stats_file)
             add_metric_to_dict(stats, metric_name, timeseries)
     return stats
@@ -128,47 +128,12 @@ def parse_multiple_instances_stats(stats_dir, pattern='.*'):
         stats.setdefault(instance_name, []).append(parse_single_instance_stats(instance_dir))
     return stats
 
-def cpu_state_time_perc_OBSOLETE(data, cpu_id):
-    cpu_str = "CPU{}".format(cpu_id)
-    state_names = ['POLL', 'C1', 'C1E', 'C6']
-    state_time_perc = []
-    total_state_time = 0
-    time_us = 0
-    # determine time window of measurements
-    for state_name in state_names:
-        if state_name in data[cpu_str]:
-            (ts_start, val_start) = data[cpu_str][state_name]['time'][0]
-            (ts_end, val_end) = data[cpu_str][state_name]['time'][-1]
-            time_us = max(time_us, (ts_end - ts_start) * 1000000.0)
-            total_state_time += val_end - val_start    
-    time_us = max(time_us, total_state_time)
-    # calculate percentage
-    for state_name in state_names:
-        if state_name in data[cpu_str]:
-            (ts_start, val_start) = data[cpu_str][state_name]['time'][0]
-            (ts_end, val_end) = data[cpu_str][state_name]['time'][-1]
-            state_time_perc.append((val_end-val_start)/time_us)
-    # calculate C0 as the remaining time 
-    state_time_perc[0] = 1 - sum(state_time_perc[1:4])
-    state_names[0] = 'C0' 
-    return state_time_perc
-
-def avg_state_time_perc_OBSOLETE(stats, cpu_id_list):
-    total_state_time_perc = [0]*4
-    cpu_count = 0
-    for cpud_id in cpu_id_list:
-        cpu_count += 1
-        total_state_time_perc = [a + b for a, b in zip(total_state_time_perc, cpu_state_time_perc_OBSOLETE(stats, cpud_id))]
-    avg_state_time_perc = [a/b for a, b in zip(total_state_time_perc, [cpu_count]*len(total_state_time_perc))]
-    return avg_state_time_perc
-
 def cpu_state_time_perc(data, cpu_id):
     cpu_str = "CPU{}".format(cpu_id)
     state_names = ['POLL', 'C1', 'C1E', 'C6']
     state_time_perc = []
     total_state_time = 0
     time_us = 0
-    # FIXME: time duration is currently hardcoded 
     # determine time window of measurements
     for state_name in state_names:
         if state_name in data[cpu_str]:
@@ -177,7 +142,22 @@ def cpu_state_time_perc(data, cpu_id):
             time_us = max(time_us, (ts_end - ts_start) * 1000000.0)
             total_state_time += val_end - val_start    
     time_us = max(time_us, total_state_time)
-    print(time_us)
+    # FIXME: time duration is currently hardcoded at 120s (120000000us)
+    extra_c6_time_us = time_us - 120000000
+    # calculate percentage
+    for state_name in state_names:
+        if state_name == 'C6':
+            extra = extra_c6_time_us
+        else:
+            extra = 0
+        if state_name in data[cpu_str]:
+            (ts_start, val_start) = data[cpu_str][state_name]['time'][0]
+            (ts_end, val_end) = data[cpu_str][state_name]['time'][-1]
+            state_time_perc.append((val_end-val_start-extra)/time_us)
+    # calculate C0 as the remaining time 
+    state_time_perc[0] = 1 - sum(state_time_perc[1:4])
+    state_names[0] = 'C0' 
+    return state_time_perc
 
 def avg_state_time_perc(stats, cpu_id_list):
     for stat in stats:
@@ -190,8 +170,6 @@ def avg_state_time_perc(stats, cpu_id_list):
     return avg_state_time_perc
 
 def get_residency_per_target_qps(stats, system_conf, qps_list):
-    bars = []
-    labels = []
     # determine used C-states
     state_names = ['C0']
     check_state_names = ['C1', 'C1E', 'C6']
@@ -199,17 +177,72 @@ def get_residency_per_target_qps(stats, system_conf, qps_list):
         instance_name = system_conf_fullname(system_conf) + shortname('10000')
         if state_name in stats[instance_name][0]['server']['CPU0']:
             state_names.append(state_name)
-    raw = []
-    raw.append(['State'] + [str(q) for q in qps_list])
+    raw = [[]] * (1+len(state_names))
+    raw[0] = (['State'] + [str(q) for q in qps_list])
     for state_id in range(0, len(state_names)):
-        row = [state_names[state_id]]
-        for qps in qps_list:
-            instance_name = system_conf_fullname(system_conf) + shortname(qps)
-            #for stat in stats[instance_name]:
-            stat = stats[instance_name][0]
-            time_perc = avg_state_time_perc_OBSOLETE(stat['server'], range(0, 10))
-            row.append(time_perc[state_id])
-        raw.append(row)
+        raw[1+state_id] = [state_names[state_id]]
+    for qps in qps_list:
+        instance_name = system_conf_fullname(system_conf) + shortname(qps)
+        time_perc_list = []
+        for stat in stats[instance_name]:
+            time_perc_list.append(avg_state_time_perc(stat['server'], range(0, 10)))
+        avg_time_perc = [0]*len(state_names)
+        for time_perc in time_perc_list:
+            avg_time_perc = [a+b for a, b in zip(avg_time_perc, time_perc)]
+        avg_time_perc = [a/len(time_perc_list) for a in avg_time_perc]
+        for state_id in range(0, len(state_names)):
+            row = raw[1 + state_id]
+            row.append(avg_time_perc[state_id])
+    return raw
+
+def cpu_state_usage(data, cpu_id):
+    cpu_str = "CPU{}".format(cpu_id)
+    state_names = ['POLL', 'C1', 'C1E', 'C6']
+    state_time_perc = []
+    total_state_time = 0
+    time_us = 0
+    state_usage_vec = []
+    for state_name in state_names:
+        if state_name in data[cpu_str]:
+            (ts_start, val_start) = data[cpu_str][state_name]['usage'][0]
+            (ts_end, val_end) = data[cpu_str][state_name]['usage'][-1]
+            state_usage = val_end - val_start
+            state_usage_vec.append(state_usage)
+    return state_usage_vec
+
+def avg_state_usage(stats, cpu_id_list):
+    total_state_usage = [0]*4
+    cpu_count = 0
+    for cpud_id in cpu_id_list:
+        cpu_count += 1
+        total_state_usage = [a + b for a, b in zip(total_state_usage, cpu_state_usage(stats, cpud_id))]
+    avg_state_usage = [a/b for a, b in zip(total_state_usage, [cpu_count]*len(total_state_usage))]
+    return avg_state_usage
+
+def get_usage_per_target_qps(stats, system_conf, qps_list):
+    # determine used C-states
+    state_names = ['POLL']
+    check_state_names = ['C1', 'C1E', 'C6']
+    for state_name in check_state_names:
+        instance_name = system_conf_fullname(system_conf) + shortname('10000')
+        if state_name in stats[instance_name][0]['server']['CPU0']:
+            state_names.append(state_name)
+    raw = [[]] * (1+len(state_names))
+    raw[0] = (['State'] + [str(q) for q in qps_list])
+    for state_id in range(0, len(state_names)):
+        raw[1+state_id] = [state_names[state_id]]
+    for qps in qps_list:
+        instance_name = system_conf_fullname(system_conf) + shortname(qps)
+        usage_list = []
+        for stat in stats[instance_name]:
+            usage_list.append(avg_state_usage(stat['server'], range(0, 10)))
+        avg_usage = [0]*len(state_names)
+        for usage in usage_list:
+            avg_usage = [a+b for a, b in zip(avg_usage, usage)]
+        avg_usage = [a/len(usage_list) for a in avg_usage]
+        for state_id in range(0, len(state_names)):
+            row = raw[1 + state_id]
+            row.append(avg_usage[state_id])
     return raw
 
 def plot_residency_per_target_qps(stats, system_conf, qps_list):
@@ -240,8 +273,8 @@ def get_latency_per_target_qps(stats, system_confs, qps_list):
     for system_conf in system_confs:
         header_row.append(system_conf_shortname(system_conf) + 'read_avg_avg') 
         header_row.append(system_conf_shortname(system_conf) + 'read_avg_std') 
-        header_row.append(system_conf_shortname(system_conf) + 'read_p99_avg') 
-        header_row.append(system_conf_shortname(system_conf) + 'read_p99_std') 
+        # header_row.append(system_conf_shortname(system_conf) + 'read_p99_avg') 
+        # header_row.append(system_conf_shortname(system_conf) + 'read_p99_std') 
     raw.append(header_row)
     for i, qps in enumerate(qps_list):
         row = [str(qps)]
@@ -252,11 +285,11 @@ def get_latency_per_target_qps(stats, system_confs, qps_list):
             for stat in stats[instance_name]:
                 mcperf_stats = stat['mcperf']
                 read_avg.append(mcperf_stats['read']['avg'])
-                read_p99.append(mcperf_stats['read']['p99'])
+                # read_p99.append(mcperf_stats['read']['p99'])
             row.append(str(statistics.mean(read_avg)))
             row.append(str(statistics.stdev(read_avg)) if len(read_avg) > 1 else 'N/A')
-            row.append(str(statistics.mean(read_p99)))
-            row.append(str(statistics.stdev(read_p99)) if len(read_p99) > 1 else 'N/A')
+            # row.append(str(statistics.mean(read_p99)))
+            # row.append(str(statistics.stdev(read_p99)) if len(read_p99) > 1 else 'N/A')
         raw.append(row)
     return raw
 
@@ -266,13 +299,10 @@ def column_matches(filter, column_name):
             return True
     return False
 
-def plot_latency_per_target_qps(stats, system_confs, qps_list, filter=None):
+def plot_X_per_target_qps(raw, qps_list, xlabel, ylabel, filter=None):
     axis_scale = 0.001
-    axis_qps_list = [q *axis_scale for q in qps_list]
     fig, ax = plt.subplots()
-    if not isinstance(system_confs, list):
-        system_confs = [system_confs]
-    raw = get_latency_per_target_qps(stats, system_confs, qps_list)
+    axis_qps_list = [q *axis_scale for q in qps_list]
     header_row = raw[0]
     data_rows = raw[1:]
     for i, y_column_name in enumerate(header_row[1::2]):
@@ -287,11 +317,15 @@ def plot_latency_per_target_qps(stats, system_confs, qps_list, filter=None):
             y_vals_err.append(float(y_val_err) if y_val_err != 'N/A' else 0)
         plt.errorbar(axis_qps_list, y_vals, yerr = y_vals_err, label=y_column_name)
 
-    ax.set_ylabel('Latency (us)')
-    ax.set_xlabel('Request Rate (KQPS)')
-    ax.legend(loc='upper left')
+    ax.set_ylabel(ylabel)
+    ax.set_xlabel(xlabel)
+    ax.legend(loc='lower right')
 
     return fig
+
+def plot_latency_per_target_qps(stats, system_confs, qps_list, filter=None):
+    raw = get_latency_per_target_qps(stats, system_confs, qps_list)
+    return plot_X_per_target_qps(raw, qps_list, 'Request Rate (KQPS)', 'Latency (us)', filter)
 
 def get_total_qps_per_target_qps(stats, system_confs, qps_list):
     if not isinstance(system_confs, list):
@@ -316,28 +350,9 @@ def get_total_qps_per_target_qps(stats, system_confs, qps_list):
         raw.append(row)
     return raw
 
-def plot_total_qps_per_target_qps(stats, system_confs, qps_list):
-    axis_scale = 0.001
-    fig, ax = plt.subplots()
-    axis_qps_list = [q *axis_scale for q in qps_list]
-    if not isinstance(system_confs, list):
-        system_confs = [system_confs]
-    for system_conf in system_confs:
-        total_qps = []
-        extra_params = system_conf_shortname(system_conf)
-        for qps in qps_list:
-            instance_name = system_conf_fullname(system_conf) + shortname(qps)
-            mcperf_stats = stats[instance_name]['mcperf']
-            total_qps.append(mcperf_stats['total_qps'])
-
-        total_qps = [q *axis_scale for q in total_qps]
-        plt.plot(axis_qps_list, total_qps, label='total qps - {}'.format(extra_params))
-
-    ax.set_ylabel('Total Rate (KQPS)')
-    ax.set_xlabel('Request Rate (KQPS)')
-    ax.legend(loc='lower right')
-
-    return fig
+def plot_total_qps_per_target_qps(stats, system_confs, qps_list, filter=None):
+    raw = get_total_qps_per_target_qps(stats, system_confs, qps_list)
+    return plot_X_per_target_qps(raw, qps_list, 'Request Rate (KQPS)', 'Total Rate (KQPS)', filter)
 
 def avg_power(timeseries):
     total_val = 0
@@ -375,27 +390,9 @@ def get_power_per_target_qps(stats, system_confs, qps_list):
         raw.append(row)
     return raw
 
-def plot_power_per_target_qps(stats, system_confs, qps_list):
-    axis_scale = 0.001
-    axis_qps_list = [q *axis_scale for q in qps_list]
-    if not isinstance(system_confs, list):
-        system_confs = [system_confs]
-    fig, ax = plt.subplots()
-    for system_conf in system_confs:
-        pkg_power = []
-        ram_power = []
-        extra_params = system_conf_shortname(system_conf)
-        for qps in qps_list:
-            instance_name = system_conf_fullname(system_conf) + shortname(qps)
-            system_stats = stats[instance_name]['server']
-            pkg_power.append(avg_power(system_stats['power/energy-pkg/']))
-            ram_power.append(avg_power(system_stats['power/energy-ram/'])) 
-        plt.plot(axis_qps_list, pkg_power, label='pkg power - {}'.format(extra_params))
-        plt.plot(axis_qps_list, ram_power, label='ram power - {}'.format(extra_params))
-
-    ax.set_ylabel('Power (W)')
-    ax.set_xlabel('Request Rate (KQPS)')
-    ax.legend(loc='lower right')
+def plot_power_per_target_qps(stats, system_confs, qps_list, filter=None):
+    raw = get_power_per_target_qps(stats, system_confs, qps_list)
+    return plot_X_per_target_qps(raw, qps_list, 'Request Rate (KQPS)', 'Power (W)', filter)
 
 def write_csv(filename, rows):
     with open(filename, 'w', newline='') as csvfile:
@@ -407,14 +404,16 @@ def write_csv(filename, rows):
 def write_csv_all(stats, system_confs, qps_list):
     for system_conf in system_confs:
         if system_conf['kernelconfig'] != 'disable_cstates':
-            raw1 = get_residency_per_target_qps(stats, system_conf, qps_list)
-            write_csv(system_conf_fullname(system_conf) + 'residency_per_target_qps' + '.csv', raw1)
-        raw2 = get_total_qps_per_target_qps(stats, system_conf, qps_list)
-        write_csv(system_conf_fullname(system_conf) + 'total_qps_per_target_qps' + '.csv', raw2)
-        raw3 = get_latency_per_target_qps(stats, system_conf, qps_list)
-        write_csv(system_conf_fullname(system_conf) + 'latency_per_target_qps' + '.csv', raw3)
-        raw4 = get_power_per_target_qps(stats, system_conf, qps_list)
-        write_csv(system_conf_fullname(system_conf) + 'power_per_target_qps' + '.csv', raw4)
+            raw = get_residency_per_target_qps(stats, system_conf, qps_list)
+            write_csv(system_conf_fullname(system_conf) + 'residency_per_target_qps' + '.csv', raw)
+            raw = get_usage_per_target_qps(stats, system_conf, qps_list)
+            write_csv(system_conf_fullname(system_conf) + 'usage_per_target_qps' + '.csv', raw)
+        raw = get_total_qps_per_target_qps(stats, system_conf, qps_list)
+        write_csv(system_conf_fullname(system_conf) + 'total_qps_per_target_qps' + '.csv', raw)
+        raw = get_latency_per_target_qps(stats, system_conf, qps_list)
+        write_csv(system_conf_fullname(system_conf) + 'latency_per_target_qps' + '.csv', raw)
+        raw = get_power_per_target_qps(stats, system_conf, qps_list)
+        write_csv(system_conf_fullname(system_conf) + 'power_per_target_qps' + '.csv', raw)
 
 def filter_system_confs(system_confs, turbo):
     turbo_system_confs = []
@@ -444,22 +443,48 @@ def write_total_qps_to_single_csv(stats, system_confs, qps_list):
     noturbo_raw = get_total_qps_per_target_qps(stats, noturbo_system_confs, qps_list)
     write_csv('all_total_qps_per_target_qps' + '.csv', turbo_raw + noturbo_raw)
 
+def plot(stats, system_confs, qps_list, interactive):
+    pdf = matplotlib.backends.backend_pdf.PdfPages("output.pdf")
+    for system_conf in system_confs:
+        firstPage = plt.figure()
+        firstPage.clf()
+        txt = system_conf_fullname(system_conf)
+        firstPage.text(0.5,0.5, txt, transform=firstPage.transFigure, size=14, ha="center")
+        pdf.savefig(firstPage)
+        plt.close()
+        if system_conf['kernelconfig'] != 'disable_cstates':
+            fig1 = plot_residency_per_target_qps(stats, system_conf, qps_list)
+            pdf.savefig(fig1)
+        fig2 = plot_total_qps_per_target_qps(stats, system_conf, qps_list)
+        pdf.savefig(fig2)
+        fig3 = plot_latency_per_target_qps(stats, system_conf, qps_list)
+        pdf.savefig(fig3)
+        fig4 = plot_power_per_target_qps(stats, system_conf, qps_list)
+        pdf.savefig(fig4)
+        if interactive:
+            plt.show()
+        plt.close(fig1)
+        plt.close(fig2)
+        plt.close(fig3)
+        # plt.close(fig4)
+    pdf.close()
+
 def plot_stack(stats, system_confs, qps_list, interactive=True):
     pdf = matplotlib.backends.backend_pdf.PdfPages("all.pdf")
     for system_conf in system_confs:
         if system_conf['kernelconfig'] != 'disable_cstates':
             fig1 = plot_residency_per_target_qps(stats, system_conf, qps_list)
             pdf.savefig(fig1)
-    # fig2 = plot_total_qps_per_target_qps(stats, system_confs, qps_list)
-    # pdf.savefig(fig2)
-    # fig3 = plot_latency_per_target_qps(stats, system_confs, qps_list, filter = ['read_avg'])
-    # pdf.savefig(fig3)
-    # fig4 = plot_power_per_target_qps(stats, system_confs, qps_list)
-    # pdf.savefig(fig4)
+    fig2 = plot_total_qps_per_target_qps(stats, system_confs, qps_list)
+    pdf.savefig(fig2)
+    fig3 = plot_latency_per_target_qps(stats, system_confs, qps_list, filter = ['read_avg'])
+    pdf.savefig(fig3)
+    fig4 = plot_power_per_target_qps(stats, system_confs, qps_list)
+    pdf.savefig(fig4)
     if interactive:
         plt.show()
-    # plt.close(fig2)
-    # plt.close(fig3)
+    plt.close(fig2)
+    plt.close(fig3)
     # plt.close(fig4)
     pdf.close()
 
@@ -470,26 +495,25 @@ def main(argv):
         # {'turbo': False, 'kernelconfig': 'baseline'},
         # {'turbo': False, 'kernelconfig': 'disable_cstates'},
         # {'turbo': False, 'kernelconfig': 'disable_c6'},
-#        {'turbo': False, 'kernelconfig': 'disable_c1e_c6'},
+        {'turbo': False, 'kernelconfig': 'disable_c1e_c6'},
         # {'turbo': False, 'kernelconfig': 'quick_c1'},
         # {'turbo': False, 'kernelconfig': 'quick_c1_disable_c6'},
         # {'turbo': False, 'kernelconfig': 'quick_c1_c1e'},
         {'turbo': True, 'kernelconfig': 'baseline'},
         # {'turbo': True, 'kernelconfig': 'disable_cstates'},
-#        {'turbo': True, 'kernelconfig': 'disable_c6'},
-#        {'turbo': True, 'kernelconfig': 'disable_c1e_c6'},
+        {'turbo': True, 'kernelconfig': 'disable_c6'},
+        {'turbo': True, 'kernelconfig': 'disable_c1e_c6'},
         # {'turbo': True, 'kernelconfig': 'quick_c1'},
         # {'turbo': True, 'kernelconfig': 'quick_c1_disable_c6'},
         # {'turbo': True, 'kernelconfig': 'quick_c1_c1e'},
     ]
-    qps_list = [10000, 50000, 100000, 200000, 300000, 400000, 500000, 1000000, 2000000]
-    qps_list = [10000, 50000, 100000, 200000, 300000, 400000, 500000]
-    #plot(stats, system_confs, qps_list, interactive=False)
-    plot_stack(stats, system_confs, qps_list, interactive=True)
+    qps_list = [10000, 50000, 100000, 200000, 300000, 400000, 500000, 600000, 700000, 800000]
+    plot(stats, system_confs, qps_list, interactive=False)
+    #plot_stack(stats, system_confs, qps_list, interactive=True)
     write_csv_all(stats, system_confs, qps_list)
-    #write_latency_to_single_csv(stats, system_confs, qps_list)
-    #write_power_to_single_csv(stats, system_confs, qps_list)
-    #write_total_qps_to_single_csv(stats, system_confs, qps_list)
+    write_latency_to_single_csv(stats, system_confs, qps_list)
+    write_power_to_single_csv(stats, system_confs, qps_list)
+    write_total_qps_to_single_csv(stats, system_confs, qps_list)
 
 if __name__ == '__main__':
     main(sys.argv)
