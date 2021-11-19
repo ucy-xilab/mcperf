@@ -53,7 +53,7 @@
       pstate: False
       c1: '1_1'
       c1e: '10_20'
-      c6: False
+      c6: True
   kernel: '4.15.18-c1-1-1-c1e-10-20'
   grub:      
       menuentry: '1>2'
