@@ -93,7 +93,9 @@ def exec_chain(command_chain, username, hostname):
 def main(argv):
   logging.getLogger('').setLevel(logging.INFO)
   hostname = argv[0]
-  create_tar_cmd = ShellCommand('tar -cf data.tgz data')
+  data_dir = argv[1]
+  #remove_tar_cmd = ShellCommand('rm data.tgz')
+  create_tar_cmd = ShellCommand('tar -cf data.tgz {}'.format(data_dir))
   scp_tar_cmd = FileGetCommand('/users/hvolos01/data.tgz', '/tmp/data.tgz')
   exec_chain([create_tar_cmd, scp_tar_cmd], 'hvolos01', hostname)
   os.system('tar -xf /tmp/data.tgz')
