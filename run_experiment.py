@@ -84,6 +84,7 @@ def wait_for_remote_node(node):
 
 def configure_memcached_node(conf):
     node = memcached_node()
+    print('ssh -n {} "cd ~/mcperf; sudo python3 configure.py -v --turbo={} --kernelconfig={} -v"'.format(node, conf['turbo'], conf['kernelconfig']))
     rc = os.system('ssh -n {} "cd ~/mcperf; sudo python3 configure.py -v --turbo={} --kernelconfig={} -v"'.format(node, conf['turbo'], conf['kernelconfig']))
     exit_status = rc >> 8 
     if exit_status == 2:
@@ -151,7 +152,7 @@ def run_single_experiment(root_results_dir, name_prefix, conf, idx):
     kill_profiler(conf)
 
 
-def run_multiple_experiments(root_results_dir, batch_name, system_conf, batch_conf):
+def run_multiple_experiments(root_results_dir, batch_name, system_conf, batch_conf, iter):
     configure_memcached_node(system_conf)
     name_prefix = "turbo={}-kernelconfig={}-".format(system_conf['turbo'], system_conf['kernelconfig'])
     request_qps = [10000, 50000, 100000, 200000, 300000, 400000, 500000, 1000000, 2000000]
@@ -159,16 +160,26 @@ def run_multiple_experiments(root_results_dir, batch_name, system_conf, batch_co
     for qps in request_qps:
         instance_conf = copy.copy(batch_conf)
         instance_conf.set('mcperf_qps', qps)
-        run_single_experiment(root_results_dir, name_prefix, instance_conf, 0)
+        run_single_experiment(root_results_dir, name_prefix, instance_conf, iter)
 
 def main(argv):
     system_confs = [
-#        {'turbo': False, 'kernelconfig': 'baseline'},
-#        {'turbo': False, 'kernelconfig': 'disable_cstates'},
-#        {'turbo': False, 'kernelconfig': 'disable_c6'},
-        {'turbo': False, 'kernelconfig': 'quick_c1'},
-        {'turbo': False, 'kernelconfig': 'quick_c1_disable_c6'},
-        {'turbo': False, 'kernelconfig': 'quick_c1_c1e'},
+#        {'turbo': True,  'kernelconfig': 'vanilla'},
+#        {'turbo': False,  'kernelconfig': 'vanilla'},
+         {'turbo': False, 'kernelconfig': 'baseline'},
+         {'turbo': False, 'kernelconfig': 'disable_cstates'},
+         {'turbo': False, 'kernelconfig': 'disable_c6'},
+         {'turbo': False, 'kernelconfig': 'disable_c1e_c6'},
+         {'turbo': False, 'kernelconfig': 'quick_c1'},
+         {'turbo': False, 'kernelconfig': 'quick_c1_disable_c6'},
+         {'turbo': False, 'kernelconfig': 'quick_c1_c1e'},
+#         {'turbo': True, 'kernelconfig': 'baseline'},
+#         {'turbo': True, 'kernelconfig': 'disable_cstates'},
+#         {'turbo': True, 'kernelconfig': 'disable_c6'},
+#         {'turbo': True, 'kernelconfig': 'disable_c1e_c6'},
+#         {'turbo': True, 'kernelconfig': 'quick_c1'},
+#         {'turbo': True, 'kernelconfig': 'quick_c1_disable_c6'},
+#         {'turbo': True, 'kernelconfig': 'quick_c1_c1e'},
     ]
     batch_conf = common.Configuration({
         'memcached_worker_threads': 10,
@@ -187,7 +198,7 @@ def main(argv):
         raise Exception("Experiment name is missing")
     batch_name = argv[0]
     for system_conf in system_confs:
-        run_multiple_experiments('/users/hvolos01/data', batch_name, system_conf, batch_conf)
+        run_multiple_experiments('/users/hvolos01/data', batch_name, system_conf, batch_conf, iter=2)
 
 if __name__ == '__main__':
     main(sys.argv[1:])

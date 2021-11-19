@@ -61,8 +61,14 @@ def find_kernel_config_using_current_kernel(kernel_configs):
     kernel_uname = os.popen('uname -a').read().strip()
     with open('/proc/cmdline', 'r') as fi:
         kernel_bootoptions = fi.readline().strip()
+    common_boot_options = 'console=ttyS0,115200'
     for kc in kernel_configs:
-        if kc['kernel'] in kernel_uname and kernel_bootoptions.endswith(kc['grub']['boot_options']):
+        expected_boot_options = kc['grub']['boot_options']
+        if len(expected_boot_options) > 0:
+            expected_boot_options = common_boot_options + ' ' + expected_boot_options 
+        else:
+            expected_boot_options = common_boot_options
+        if kc['kernel'] in kernel_uname and kernel_bootoptions.endswith(expected_boot_options):
             return kc
     return None                
 

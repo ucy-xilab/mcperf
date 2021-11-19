@@ -1,3 +1,13 @@
+- name: 'vanilla'
+  config:
+      pstate: True
+      c1: '2_2'
+      c1e: '10_20'
+      c6: True
+  kernel: '4.15.0-159-generic'
+  grub:
+      menuentry: '1>6'
+      boot_options: ''
 - name: 'baseline'
   config:
       pstate: False
@@ -6,7 +16,7 @@
       c6: True
   kernel: '4.15.18-c1-2-2-c1e-10-20'
   grub:
-      menuentry: '0>0'
+      menuentry: '1>0'
       boot_options: 'intel_pstate=disable'
 - name: 'disable_cstates'
   config:
@@ -16,7 +26,7 @@
       c6: False
   kernel: '4.15.18-c1-2-2-c1e-10-20'
   grub:      
-      menuentry: '0>0'
+      menuentry: '1>0'
       boot_options: 'intel_pstate=disable intel_idle.max_cstate=0 idle=poll'
 - name: 'disable_c6'
   config:
@@ -26,14 +36,24 @@
       c6: False
   kernel: '4.15.18-c1-2-2-c1e-10-20'
   grub:      
-      menuentry: '0>0'
+      menuentry: '1>0'
       boot_options: 'intel_pstate=disable intel_idle.max_cstate=2'
+- name: 'disable_c1e_c6'
+  config:
+      pstate: False
+      c1: '2_2'
+      c1e: False
+      c6: False
+  kernel: '4.15.18-c1-2-2-c1e-10-20'
+  grub:      
+      menuentry: '1>0'
+      boot_options: 'intel_pstate=disable intel_idle.max_cstate=1'
 - name: 'quick_c1'
   config:
       pstate: False
       c1: '1_1'
       c1e: '10_20'
-      c6: False
+      c6: True
   kernel: '4.15.18-c1-1-1-c1e-10-20'
   grub:      
       menuentry: '1>2'
@@ -53,8 +73,8 @@
       pstate: False
       c1: '1_1'
       c1e: '5_20'
-      c6: False
-  kernel: '4.15.18-c1-1-1-c1e-10-20'
+      c6: True
+  kernel: '4.15.18-c1-1-1-c1e-05-20'
   grub:      
       menuentry: '1>4'
       boot_options: 'intel_pstate=disable'
