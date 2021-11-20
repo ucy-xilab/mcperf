@@ -1,0 +1,9 @@
+---
+- name: Set uncore frequency
+  become: yes
+  hosts: memcached
+  tasks:
+  - name: Load msr kernel module    
+    shell: modprobe msr
+  - name: Set uncore freq
+    shell: wrmsr -p0 0x620 {{ MSR_VALUE }}

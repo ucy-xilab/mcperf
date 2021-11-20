@@ -32,6 +32,17 @@ def run_ansible_playbook(inventory, extravars=None, playbook=None, tags=None):
     print(cmd)
     r = os.system(cmd)
 
+def set_uncore_freq(conf, freq_mhz):
+    freq_hex=format(freq_mhz//100, 'x')
+    msr_val = "0x{}{}".format(freq_hex, freq_hex) 
+    
+    extravars = [
+       'MSR_VALUE={}'.format(msr_val)]
+    run_ansible_playbook(
+       inventory='hosts', 
+       extravars=extravars, 
+       playbook='ansible/configure.yml')
+
 def run_profiler(conf):
     run_ansible_playbook(
         inventory='hosts', 
@@ -97,6 +108,7 @@ def configure_memcached_node(conf):
             time.sleep(30)
             pass
         os.system('ssh -n {} "cd ~/mcperf; sudo python3 configure.py -v --turbo={} --kernelconfig={} -v"'.format(node, conf['turbo'], conf['kernelconfig']))
+    set_uncore_freq(conf, 2000)
 
 def agents_list():
     config = configparser.ConfigParser(allow_no_value=True)
@@ -155,7 +167,9 @@ def run_single_experiment(root_results_dir, name_prefix, conf, idx):
 def run_multiple_experiments(root_results_dir, batch_name, system_conf, batch_conf, iter):
     configure_memcached_node(system_conf)
     name_prefix = "turbo={}-kernelconfig={}-".format(system_conf['turbo'], system_conf['kernelconfig'])
-    request_qps = [10000, 50000, 100000, 200000, 300000, 400000, 500000, 1000000, 2000000]
+    #request_qps = [10000, 50000, 100000, 200000, 300000, 400000, 500000, 1000000, 2000000]
+    #request_qps = [10000, 50000, 100000, 200000, 300000, 400000, 500000, 600000, 700000, 800000]
+    request_qps = [10000, 50000, 100000, 200000, 300000, 400000, 500000]
     root_results_dir = os.path.join(root_results_dir, batch_name)
     for qps in request_qps:
         instance_conf = copy.copy(batch_conf)
@@ -164,22 +178,22 @@ def run_multiple_experiments(root_results_dir, batch_name, system_conf, batch_co
 
 def main(argv):
     system_confs = [
-#        {'turbo': True,  'kernelconfig': 'vanilla'},
-#        {'turbo': False,  'kernelconfig': 'vanilla'},
+##        {'turbo': True,  'kernelconfig': 'vanilla'},
+##        {'turbo': False,  'kernelconfig': 'vanilla'},
          {'turbo': False, 'kernelconfig': 'baseline'},
-         {'turbo': False, 'kernelconfig': 'disable_cstates'},
-         {'turbo': False, 'kernelconfig': 'disable_c6'},
-         {'turbo': False, 'kernelconfig': 'disable_c1e_c6'},
-         {'turbo': False, 'kernelconfig': 'quick_c1'},
-         {'turbo': False, 'kernelconfig': 'quick_c1_disable_c6'},
-         {'turbo': False, 'kernelconfig': 'quick_c1_c1e'},
 #         {'turbo': True, 'kernelconfig': 'baseline'},
-#         {'turbo': True, 'kernelconfig': 'disable_cstates'},
+         {'turbo': False, 'kernelconfig': 'disable_cstates'},
+##         {'turbo': False, 'kernelconfig': 'disable_c6'},
 #         {'turbo': True, 'kernelconfig': 'disable_c6'},
+#         {'turbo': False, 'kernelconfig': 'disable_c1e_c6'},
 #         {'turbo': True, 'kernelconfig': 'disable_c1e_c6'},
-#         {'turbo': True, 'kernelconfig': 'quick_c1'},
-#         {'turbo': True, 'kernelconfig': 'quick_c1_disable_c6'},
-#         {'turbo': True, 'kernelconfig': 'quick_c1_c1e'},
+##         {'turbo': False, 'kernelconfig': 'quick_c1'},
+##         {'turbo': True, 'kernelconfig': 'quick_c1'},
+##         {'turbo': False, 'kernelconfig': 'quick_c1_disable_c6'},
+##         {'turbo': True, 'kernelconfig': 'quick_c1_disable_c6'},
+##         {'turbo': False, 'kernelconfig': 'quick_c1_c1e'},
+##         {'turbo': True, 'kernelconfig': 'quick_c1_c1e'},
+##         {'turbo': True, 'kernelconfig': 'disable_cstates'},
     ]
     batch_conf = common.Configuration({
         'memcached_worker_threads': 10,
@@ -198,7 +212,7 @@ def main(argv):
         raise Exception("Experiment name is missing")
     batch_name = argv[0]
     for system_conf in system_confs:
-        run_multiple_experiments('/users/hvolos01/data', batch_name, system_conf, batch_conf, iter=2)
+        run_multiple_experiments('/users/hvolos01/data', batch_name, system_conf, batch_conf, iter=0)
 
 if __name__ == '__main__':
     main(sys.argv[1:])

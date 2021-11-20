@@ -57,3 +57,11 @@ make -C tools/power/cpupower
 ```
 ssh -n node1 'cd ~/mcperf; sudo python3 configure.py -v --kernelconfig=baseline -v'
 ```
+
+# Setting and checking uncore freq
+
+[Setting uncore freq](https://www.linkedin.com/pulse/manually-setting-uncore-frequency-intel-cpus-johannes-hofmann/)
+
+```
+sudo likwid-perfctr -C 0-2 -g CLOCK sleep 1
+```
