@@ -43,6 +43,14 @@ def set_uncore_freq(conf, freq_mhz):
        extravars=extravars, 
        playbook='ansible/configure.yml')
 
+def set_core_freq(conf, freq_mhz):
+    extravars = [
+       'CORE_FREQ={}MHz'.format(freq_mhz)]
+    run_ansible_playbook(
+       inventory='hosts', 
+       extravars=extravars, 
+       playbook='ansible/configure_core_freq.yml')
+
 def run_profiler(conf):
     run_ansible_playbook(
         inventory='hosts', 
@@ -108,7 +116,6 @@ def configure_memcached_node(conf):
             time.sleep(30)
             pass
         os.system('ssh -n {} "cd ~/mcperf; sudo python3 configure.py -v --turbo={} --kernelconfig={} -v"'.format(node, conf['turbo'], conf['kernelconfig']))
-    set_uncore_freq(conf, 2000)
 
 def agents_list():
     config = configparser.ConfigParser(allow_no_value=True)
@@ -164,6 +171,20 @@ def run_single_experiment(root_results_dir, name_prefix, conf, idx):
     kill_profiler(conf)
 
 
+def run_multiple_experiments_with_varying_freq(root_results_dir, batch_name, system_conf, batch_conf, iter):
+    configure_memcached_node(system_conf)
+    name_prefix = "turbo={}-kernelconfig={}-".format(system_conf['turbo'], system_conf['kernelconfig'])
+    request_qps = [10000, 50000, 100000, 200000, 300000, 400000, 500000]
+    root_results_dir = os.path.join(root_results_dir, batch_name)
+    set_uncore_freq(system_conf, 1600)
+    for freq in [1400, 1600, 1800, 2000, 2200, 2400]:
+        set_core_freq(system_conf, freq)
+        for qps in request_qps:
+            instance_conf = copy.copy(batch_conf)
+            instance_conf.set('mcperf_qps', qps)
+            instance_conf.set('memcached_freq', freq)
+            run_single_experiment(root_results_dir, name_prefix, instance_conf, iter)
+
 def run_multiple_experiments(root_results_dir, batch_name, system_conf, batch_conf, iter):
     configure_memcached_node(system_conf)
     name_prefix = "turbo={}-kernelconfig={}-".format(system_conf['turbo'], system_conf['kernelconfig'])
@@ -171,16 +192,20 @@ def run_multiple_experiments(root_results_dir, batch_name, system_conf, batch_co
     #request_qps = [10000, 50000, 100000, 200000, 300000, 400000, 500000, 600000, 700000, 800000]
     request_qps = [10000, 50000, 100000, 200000, 300000, 400000, 500000]
     root_results_dir = os.path.join(root_results_dir, batch_name)
+    set_uncore_freq(system_conf, 2000)
     for qps in request_qps:
         instance_conf = copy.copy(batch_conf)
         instance_conf.set('mcperf_qps', qps)
         run_single_experiment(root_results_dir, name_prefix, instance_conf, iter)
 
+
+
 def main(argv):
     system_confs = [
 ##        {'turbo': True,  'kernelconfig': 'vanilla'},
 ##        {'turbo': False,  'kernelconfig': 'vanilla'},
-         {'turbo': False, 'kernelconfig': 'baseline'},
+#         {'turbo': False, 'kernelconfig': 'baseline'},
+#         {'turbo': False, 'kernelconfig': 'disable_c6'},
 #         {'turbo': True, 'kernelconfig': 'baseline'},
          {'turbo': False, 'kernelconfig': 'disable_cstates'},
 ##         {'turbo': False, 'kernelconfig': 'disable_c6'},
@@ -211,8 +236,9 @@ def main(argv):
     if len(argv) < 1:
         raise Exception("Experiment name is missing")
     batch_name = argv[0]
-    for system_conf in system_confs:
-        run_multiple_experiments('/users/hvolos01/data', batch_name, system_conf, batch_conf, iter=0)
+    for iter in range(0, 3):
+        for system_conf in system_confs:
+            run_multiple_experiments('/users/hvolos01/data', batch_name, system_conf, batch_conf, iter)
 
 if __name__ == '__main__':
     main(sys.argv[1:])
