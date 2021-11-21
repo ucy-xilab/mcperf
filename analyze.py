@@ -537,15 +537,19 @@ def main(argv):
        {'turbo': True, 'kernelconfig': 'baseline'},
        {'turbo': True, 'kernelconfig': 'disable_c6'},
        {'turbo': True, 'kernelconfig': 'disable_c1e_c6'},
+       {'turbo': True, 'kernelconfig': 'disable_cstates'},
     ]
 
     uncore_fixed_system_confs = [
        {'turbo': False, 'kernelconfig': 'baseline'},
        {'turbo': False, 'kernelconfig': 'disable_c6'},
+       {'turbo': False, 'kernelconfig': 'disable_c1e_c6'},
+       {'turbo': False, 'kernelconfig': 'disable_cstates'},
     ]
 
     #system_confs = core_freq_varying_system_confs
     system_confs = uncore_fixed_system_confs
+    #system_confs = uncore_dynamic_system_confs
 
     #qps_list = [10000, 50000, 100000, 200000, 300000, 400000, 500000, 600000, 700000, 800000]
     qps_list = [10000, 50000, 100000, 200000, 300000, 400000, 500000]
