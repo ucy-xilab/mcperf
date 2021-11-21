@@ -17,8 +17,10 @@ def derive_datatype(datastr):
 def system_conf_fullname(system_conf):
     l = [
         'turbo={}'.format(system_conf['turbo']),
-        'kernelconfig={}'.format(system_conf['kernelconfig']),
+        'kernelconfig={}'.format(system_conf['kernelconfig'])
     ]
+    if 'freq' in system_conf:
+        l.append('freq={}'.format(system_conf['freq']))
     return '-'.join(l) + '-'
 
 def system_conf_shortname(system_conf):
@@ -33,8 +35,10 @@ def system_conf_shortname(system_conf):
     }
     l = [
         'T' if system_conf['turbo'] else 'NT',
-        short_kernelconfig[system_conf['kernelconfig']]
+        short_kernelconfig[system_conf['kernelconfig']],
     ]
+    if 'freq' in system_conf:
+        l.append('F{}'.format(system_conf['freq']))
     return '-'.join(l) + '-'
 
 def shortname(qps=None):
@@ -174,7 +178,7 @@ def get_residency_per_target_qps(stats, system_conf, qps_list):
     state_names = ['C0']
     check_state_names = ['C1', 'C1E', 'C6']
     for state_name in check_state_names:
-        instance_name = system_conf_fullname(system_conf) + shortname('10000')
+        instance_name = system_conf_fullname(system_conf) + shortname('100000')
         if state_name in stats[instance_name][0]['server']['CPU0']:
             state_names.append(state_name)
     raw = [[]] * (1+len(state_names))
@@ -273,8 +277,8 @@ def get_latency_per_target_qps(stats, system_confs, qps_list):
     for system_conf in system_confs:
         header_row.append(system_conf_shortname(system_conf) + 'read_avg_avg') 
         header_row.append(system_conf_shortname(system_conf) + 'read_avg_std') 
-        # header_row.append(system_conf_shortname(system_conf) + 'read_p99_avg') 
-        # header_row.append(system_conf_shortname(system_conf) + 'read_p99_std') 
+        header_row.append(system_conf_shortname(system_conf) + 'read_p99_avg') 
+        header_row.append(system_conf_shortname(system_conf) + 'read_p99_std') 
     raw.append(header_row)
     for i, qps in enumerate(qps_list):
         row = [str(qps)]
@@ -285,11 +289,16 @@ def get_latency_per_target_qps(stats, system_confs, qps_list):
             for stat in stats[instance_name]:
                 mcperf_stats = stat['mcperf']
                 read_avg.append(mcperf_stats['read']['avg'])
-                # read_p99.append(mcperf_stats['read']['p99'])
+                read_p99.append(mcperf_stats['read']['p99'])
+            if len(read_avg) >= 5:
+                read_avg.remove(min(read_avg))
+                read_avg.remove(max(read_avg))
+                read_p99.remove(min(read_p99))
+                read_p99.remove(max(read_p99))
             row.append(str(statistics.mean(read_avg)))
             row.append(str(statistics.stdev(read_avg)) if len(read_avg) > 1 else 'N/A')
-            # row.append(str(statistics.mean(read_p99)))
-            # row.append(str(statistics.stdev(read_p99)) if len(read_p99) > 1 else 'N/A')
+            row.append(str(statistics.mean(read_p99)))
+            row.append(str(statistics.stdev(read_p99)) if len(read_p99) > 1 else 'N/A')
         raw.append(row)
     return raw
 
@@ -491,25 +500,57 @@ def plot_stack(stats, system_confs, qps_list, interactive=True):
 def main(argv):
     stats_root_dir = argv[1]
     stats = parse_multiple_instances_stats(stats_root_dir)
-    system_confs = [
-        # {'turbo': False, 'kernelconfig': 'baseline'},
-        # {'turbo': False, 'kernelconfig': 'disable_cstates'},
-        # {'turbo': False, 'kernelconfig': 'disable_c6'},
+    all_system_confs = [
+        {'turbo': False, 'kernelconfig': 'baseline'},
+        {'turbo': False, 'kernelconfig': 'disable_cstates'},
+        {'turbo': False, 'kernelconfig': 'disable_c6'},
         {'turbo': False, 'kernelconfig': 'disable_c1e_c6'},
-        # {'turbo': False, 'kernelconfig': 'quick_c1'},
-        # {'turbo': False, 'kernelconfig': 'quick_c1_disable_c6'},
-        # {'turbo': False, 'kernelconfig': 'quick_c1_c1e'},
+        {'turbo': False, 'kernelconfig': 'quick_c1'},
+        {'turbo': False, 'kernelconfig': 'quick_c1_disable_c6'},
+        {'turbo': False, 'kernelconfig': 'quick_c1_c1e'},
         {'turbo': True, 'kernelconfig': 'baseline'},
-        # {'turbo': True, 'kernelconfig': 'disable_cstates'},
+        {'turbo': True, 'kernelconfig': 'disable_cstates'},
         {'turbo': True, 'kernelconfig': 'disable_c6'},
         {'turbo': True, 'kernelconfig': 'disable_c1e_c6'},
-        # {'turbo': True, 'kernelconfig': 'quick_c1'},
-        # {'turbo': True, 'kernelconfig': 'quick_c1_disable_c6'},
-        # {'turbo': True, 'kernelconfig': 'quick_c1_c1e'},
+        {'turbo': True, 'kernelconfig': 'quick_c1'},
+        {'turbo': True, 'kernelconfig': 'quick_c1_disable_c6'},
+        {'turbo': True, 'kernelconfig': 'quick_c1_c1e'},
     ]
-    qps_list = [10000, 50000, 100000, 200000, 300000, 400000, 500000, 600000, 700000, 800000]
-    plot(stats, system_confs, qps_list, interactive=False)
-    #plot_stack(stats, system_confs, qps_list, interactive=True)
+
+    core_freq_varying_system_confs = [
+        {'turbo': False, 'kernelconfig': 'baseline', 'freq': 1400},
+        {'turbo': False, 'kernelconfig': 'baseline', 'freq': 1600},
+        {'turbo': False, 'kernelconfig': 'baseline', 'freq': 1800},
+        {'turbo': False, 'kernelconfig': 'baseline', 'freq': 2000},
+        {'turbo': False, 'kernelconfig': 'baseline', 'freq': 2200},
+        {'turbo': False, 'kernelconfig': 'baseline', 'freq': 2400},
+        {'turbo': False, 'kernelconfig': 'disable_cstates', 'freq': 1400},
+        {'turbo': False, 'kernelconfig': 'disable_cstates', 'freq': 1600},
+        {'turbo': False, 'kernelconfig': 'disable_cstates', 'freq': 1800},
+        {'turbo': False, 'kernelconfig': 'disable_cstates', 'freq': 2000},
+        {'turbo': False, 'kernelconfig': 'disable_cstates', 'freq': 2200},
+        {'turbo': False, 'kernelconfig': 'disable_cstates', 'freq': 2400},
+    ]
+
+    uncore_dynamic_system_confs = [
+       {'turbo': False, 'kernelconfig': 'disable_c1e_c6'},
+       {'turbo': True, 'kernelconfig': 'baseline'},
+       {'turbo': True, 'kernelconfig': 'disable_c6'},
+       {'turbo': True, 'kernelconfig': 'disable_c1e_c6'},
+    ]
+
+    uncore_fixed_system_confs = [
+       {'turbo': False, 'kernelconfig': 'baseline'},
+       {'turbo': False, 'kernelconfig': 'disable_c6'},
+    ]
+
+    #system_confs = core_freq_varying_system_confs
+    system_confs = uncore_fixed_system_confs
+
+    #qps_list = [10000, 50000, 100000, 200000, 300000, 400000, 500000, 600000, 700000, 800000]
+    qps_list = [10000, 50000, 100000, 200000, 300000, 400000, 500000]
+    #plot(stats, system_confs, qps_list, interactive=False)
+    plot_stack(stats, system_confs, qps_list, interactive=True)
     write_csv_all(stats, system_confs, qps_list)
     write_latency_to_single_csv(stats, system_confs, qps_list)
     write_power_to_single_csv(stats, system_confs, qps_list)
