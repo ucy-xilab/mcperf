@@ -5,5 +5,7 @@ class Configuration:
         self.__dict__[key] = value
     def shortname(self):
         l = []
+        if hasattr(self, 'memcached_freq'):
+            l.append("freq={}".format(self.memcached_freq))
         l.append("qps={}".format(self.mcperf_qps))
         return '-'.join(l)
