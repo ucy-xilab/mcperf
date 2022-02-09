@@ -2,7 +2,7 @@
 
 ```
 ./mcperf.sh build_and_deploy
-python3 run_experiment BATCH_NAME
+python3 run_experiment.py BATCH_NAME
 ```
 
 # Analyzing data
