@@ -1,6 +1,7 @@
 # Running experiments
 
 ```
+./mcperf.sh install_dep
 ./mcperf.sh build_install
 python3 run_experiment.py BATCH_NAME
 ```
