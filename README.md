@@ -73,14 +73,33 @@ sudo likwid-perfctr -C 0-2 -g CLOCK sleep 1
 
 # Installing Vtune - SoCWatch
 
+Install dependencies
+
 ```
 sudo apt-get install libgtk-3-0 libasound2 
+```
+
+Add the Intel oneAPI repository
+
+```
 cd /tmp
 wget https://apt.repos.intel.com/intel-gpg-keys/GPG-PUB-KEY-INTEL-SW-PRODUCTS.PUB
 sudo apt-key add GPG-PUB-KEY-INTEL-SW-PRODUCTS.PUB
 echo "deb https://apt.repos.intel.com/oneapi all main" | sudo tee /etc/apt/sources.list.d/oneAPI.list
+
+```
+
+Install vtune profiler
+
+```
 sudo apt update
 sudo apt install intel-oneapi-vtune
+```
+
+Set environment variables
+
+```
+
 source /opt/intel/oneapi/vtune/latest/env/vars.sh
 
 ```
