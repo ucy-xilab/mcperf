@@ -21,3 +21,21 @@
     ignore_errors: yes
     shell: kill {{ item }}
     with_items: "{{ running_processes.stdout_lines }}"
+- name: Run remote socwatch
+  hosts: memcached
+  tags: 
+  - run_socwatch
+  tasks:
+  - name: Run remote socwatch
+    command: sudo /opt/intel/oneapi/vtune/2022.3.0/socwatch/x64/socwatch -s 60 -t {{ MONITOR_TIME }} -f cpu-cstate -m -r int -o {{ OUTPUT_FILE }}
+    async: 10000 
+    poll: 0 
+- name: Run remote socwatch io
+  hosts: memcached
+  tags:
+  - run_socwatch_io
+  tasks:
+  - name: Run remote socwatch io
+    command: sudo /opt/intel/oneapi/vtune/2022.3.0/bin64/vtune -collect io -duration=40  -r {{ OUTPUT_FILE }}
+    async: 10000
+    poll: 0

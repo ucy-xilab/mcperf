@@ -32,6 +32,26 @@ def run_ansible_playbook(inventory, extravars=None, playbook=None, tags=None):
     print(cmd)
     r = os.system(cmd)
 
+def run_socwatch(conf,name):
+    extravars = [
+        'MONITOR_TIME={}'.format("40"),
+        'OUTPUT_FILE={}'.format(name)]
+    run_ansible_playbook(
+        inventory='hosts',
+        extravars=extravars,
+        playbook='./ansible/profiler.yml',
+        tags='run_socwatch')
+
+def run_socwatch_io(conf,name):
+    extravars = [
+        'OUTPUT_FILE={}'.format(name)]
+    run_ansible_playbook(
+        inventory='hosts',
+        extravars=extravars,
+        playbook='./ansible/profiler.yml',
+        tags='run_socwatch_io')
+
+
 def set_uncore_freq(conf, freq_mhz):
     freq_hex=format(freq_mhz//100, 'x')
     msr_val = "0x{}{}".format(freq_hex, freq_hex) 
@@ -152,12 +172,27 @@ def run_single_experiment(root_results_dir, name_prefix, conf, idx):
 
     # do the measured run
     exec_command("./profiler.py -n node1 start")
+    run_socwatch(conf,results_dir_name)
+    run_socwatch_io(conf,results_dir_name)
     stdout = exec_command(
         "./memcache-perf/mcperf -s node1 --noload -B -T 40 -Q 1000 -D 4 -C 4 "
         "{} -c 4 -q {} -t {} -r {} "
         "--iadist={} --keysize={} --valuesize={}"
         .format(agents_parameter(), conf.mcperf_qps, conf.mcperf_time, conf.mcperf_records, conf.mcperf_iadist, conf.mcperf_keysize, conf.mcperf_valuesize))
     exec_command("./profiler.py -n node1 stop")
+
+    #check if socwatch is still processing
+    active_socwatch=exec_command("/users/ganton12/mcperf/scripts/check-socwatch-status.sh node1")
+    while (int(active_socwatch[0]) > 2):
+       time.sleep(30)
+       active_socwatch=exec_command("/users/ganton12/mcperf/scripts/check-socwatch-status.sh node1")
+
+    exec_command("python3 ./profiler.py -n node1 report -d {}".format(memcached_results_dir_path))
+
+    mcperf_results_path_name = os.path.join(results_dir_path, 'mcperf')
+    with open(mcperf_results_path_name, 'w') as fo:
+        for l in stdout:
+            fo.write(l+'\n')
 
     # write statistics 
     exec_command("./profiler.py -n node1 report -d {}".format(memcached_results_dir_path))
