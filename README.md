@@ -70,3 +70,17 @@ ssh -n node1 'cd ~/mcperf; sudo python3 configure.py -v --kernelconfig=baseline 
 ```
 sudo likwid-perfctr -C 0-2 -g CLOCK sleep 1
 ```
+
+# Installing Vtune - SoCWatch
+
+```
+sudo apt-get install libgtk-3-0 libasound2 
+cd /tmp
+wget https://apt.repos.intel.com/intel-gpg-keys/GPG-PUB-KEY-INTEL-SW-PRODUCTS.PUB
+sudo apt-key add GPG-PUB-KEY-INTEL-SW-PRODUCTS.PUB
+echo "deb https://apt.repos.intel.com/oneapi all main" | sudo tee /etc/apt/sources.list.d/oneAPI.list
+sudo apt update
+sudo apt install intel-oneapi-vtune
+source /opt/intel/oneapi/vtune/latest/env/vars.sh
+
+```
