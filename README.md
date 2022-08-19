@@ -103,3 +103,25 @@ Set environment variables
 source /opt/intel/oneapi/vtune/latest/env/vars.sh
 
 ```
+
+# Parse SoCWatch and Vtune Output
+
+### Vtune does not have a parsing script only parse command
+
+```
+/opt/intel/oneapi/vtune/2022.3.0/bin64/vtune -report summary -r "data directory"
+```
+
+### Parse SoCWatch
+
+To get the PC1 residency and the number of transitions after a full idle 
+
+```
+python3 ./overlapping_intervals.py "trace_file"
+```
+
+To get the distribution of idle_periods
+
+```
+python3 ./idle_distribution.py "trace file" "num cores" "start core id" "end core id"
+```
