@@ -65,6 +65,47 @@ class EventProfiling:
             timestamp = str(int(time.time()))
             self.sample(timestamp)
 
+class RaplCountersProfiling(EventProfiling):
+    raplcounters_path = '/sys/class/powercap/intel-rapl/'   
+
+    def __init__(self, sampling_period=0):
+        super().__init__(sampling_period)
+        self.domain_names = {}
+        self.domain_names = RaplCountersProfiling.power_domain_names()
+        self.timeseries = {}
+
+    @staticmethod
+    def power_domain_names():
+        raplcounters_path = RaplCountersProfiling.raplcounters_path
+        if not os.path.exists(raplcounters_path):
+            return []
+        domain_names = {}
+        
+        #Find all supported domains of the system
+        for root, subdirs, files in os.walk(raplcounters_path):
+            for subdir in subdirs:
+                if "intel-rapl" in subdir:
+                    domain_names[open("{}/{}/{}".format(root, subdir,'name'), "r").read().strip()]= os.path.join(root,subdir,'energy_uj')    
+        return domain_names
+
+   
+    def sample(self, timestamp):
+         for domain in self.domain_names:
+                value = open(self.domain_names[domain], "r").read().strip()
+                self.timeseries.setdefault(domain, []).append((timestamp, value))
+       
+
+    def interrupt_sample(self):
+        pass
+
+    def zerosample(self, timestamp):
+        pass
+
+    def clear(self):
+        self.timeseries = {}
+
+    def report(self):
+        return self.timeseries
 
 class PerfEventProfiling(EventProfiling):
     def __init__(self, sampling_period=1, sampling_length=1):
@@ -231,10 +272,12 @@ class ProfilingService:
         print(kv)
 
 def server(port):
+
+    rapl_profiling = RaplCountersProfiling(sampling_period=0)
     perf_event_profiling = PerfEventProfiling(sampling_period=30,sampling_length=30)
     mpstat_profiling = MpstatProfiling()
     state_profiling = StateProfiling(sampling_period=0)
-    profiling_service = ProfilingService([perf_event_profiling, mpstat_profiling, state_profiling])
+    profiling_service = ProfilingService([rapl_profiling, perf_event_profiling, mpstat_profiling, state_profiling])
     hostname = socket.gethostname().split('.')[0]
     server = SimpleXMLRPCServer((hostname, port), allow_none=True)
     server.register_instance(profiling_service)

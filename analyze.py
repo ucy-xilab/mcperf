@@ -44,6 +44,35 @@ def system_conf_shortname(system_conf):
 def shortname(qps=None):
     return 'qps={}'.format(qps)
 
+def parse_rapl_stats(rapl_stats_file):
+    stats = {}
+    counter=0
+    stats['package-0'] = []
+    stats['package-1'] = []
+    stats['dram'] = []
+    package_0=0
+    package_1=0
+    dram=0
+   
+    package_0_stats_file = os.path.join(rapl_stats_file,'package-0')
+    
+    with open(package_0_stats_file, 'r') as f:
+        metric,series = read_timeseries(package_0_stats_file)
+        package_0=(series[1][1] - series[0][1])/((series[1][0]-series[0][0]))/1000000
+        stats['package-0'].append(float(package_0))
+    
+    package_1_stats_file = os.path.join(rapl_stats_file,'package-1')
+    with open(package_1_stats_file, 'r') as f:
+        metric,series = read_timeseries(package_1_stats_file)
+        package_1=(series[1][1] - series[0][1])/((series[1][0]-series[0][0]))/1000000
+        stats['package-1'].append(float(package_1))
+    
+    dram_stats_file = os.path.join(rapl_stats_file,'dram')
+    with open(dram_stats_file, 'r') as f:
+        metric,series = read_timeseries(dram_stats_file)
+        dram=(series[1][1] - series[0][1])/((series[1][0]-series[0][0]))/1000000
+        stats['dram'].append(float(dram))
+
 def parse_mcperf_stats(mcperf_results_path):
     stats = None
     with open(mcperf_results_path, 'r') as f:
@@ -116,10 +145,12 @@ def parse_perf_stats(stats_dir):
 
 def parse_single_instance_stats(stats_dir):
     stats = {}
+    rapl_stats_file = os.path.join(stats_dir,'memcached')
+    server_rapl_stats = parse_rapl_stats(rapl_stats_file)
     server_stats_dir = os.path.join(stats_dir, 'memcached')
     server_cstate_stats = parse_cstate_stats(server_stats_dir)
     server_perf_stats = parse_perf_stats(server_stats_dir)
-    stats['server'] = {**server_cstate_stats, **server_perf_stats}
+    stats['server'] = {**server_rapl_stats, **server_cstate_stats, **server_perf_stats}
     mcperf_stats_file = os.path.join(stats_dir, 'mcperf')
     stats['mcperf'] = parse_mcperf_stats(mcperf_stats_file)
     return stats
@@ -172,6 +203,44 @@ def avg_state_time_perc(stats, cpu_id_list):
             total_state_time_perc = [a + b for a, b in zip(total_state_time_perc, cpu_state_time_perc(stats, cpud_id))]
         avg_state_time_perc = [a/b for a, b in zip(total_state_time_perc, [cpu_count]*len(total_state_time_perc))]
     return avg_state_time_perc
+
+def get_rapl_power_per_target_qps(stats, system_confs, qps_list):
+    if not isinstance(system_confs, list):
+        system_confs = [system_confs]
+    raw = []
+    header_row = []
+    header_row.append('QPS')
+    for system_conf in system_confs:
+        header_row.append(system_conf_shortname(system_conf) + 'power-pkg-0-avg') 
+        header_row.append(system_conf_shortname(system_conf) + 'power-pkg-0-std') 
+        header_row.append(system_conf_shortname(system_conf) + 'power-pkg-1-avg') 
+        header_row.append(system_conf_shortname(system_conf) + 'power-pkg-1-std') 
+        header_row.append(system_conf_shortname(system_conf) + 'power-dram-avg') 
+        header_row.append(system_conf_shortname(system_conf) + 'power-dram-std')
+    raw.append(header_row)
+    for i, qps in enumerate(qps_list):
+        row = [str(qps)]
+        for system_conf in system_confs:
+            power_pkg_0 = []
+            power_pkg_1 = []
+            power_dram = []
+            
+            instance_name = system_conf_fullname(system_conf) + shortname(qps)
+            for stat in stats[instance_name]:
+                system_stats = stat['server']
+                power_pkg_0.append((system_stats['package-0'][0]))
+                power_pkg_1.append((system_stats['package-1'][0]))
+                power_dram.append((system_stats['dram'][0]))
+                            
+            row.append(str(statistics.mean(power_pkg_0)))
+            row.append(str(statistics.stdev(power_pkg_0)) if len(power_pkg_0) > 1 else 'N/A' )
+            row.append(str(statistics.mean(power_pkg_1)))
+            row.append(str(statistics.stdev(power_pkg_1)) if len(power_pkg_1) > 1 else 'N/A' )
+            row.append(str(statistics.mean(power_dram)))
+            row.append(str(statistics.stdev(power_dram)) if len(power_dram) > 1 else 'N/A')
+        raw.append(row)
+    return raw
+
 
 def get_residency_per_target_qps(stats, system_conf, qps_list):
     # determine used C-states
@@ -423,6 +492,8 @@ def write_csv_all(stats, system_confs, qps_list):
         write_csv(system_conf_fullname(system_conf) + 'latency_per_target_qps' + '.csv', raw)
         raw = get_power_per_target_qps(stats, system_conf, qps_list)
         write_csv(system_conf_fullname(system_conf) + 'power_per_target_qps' + '.csv', raw)
+        raw = get_rapl_power_per_target_qps(stats, system_conf, qps_list)
+        write_csv(system_conf_fullname(system_conf) + 'rapl_power_per_target_qps' + '.csv', raw)
 
 def filter_system_confs(system_confs, turbo):
     turbo_system_confs = []
